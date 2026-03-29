@@ -131,7 +131,7 @@ If any deliverable file is missing or empty, report which ones and STOP.
 
 This is the core of the review. For each axis, independently re-derive what the label should be using the original evidence (comment body, diff, comment analysis). Then compare your independent assessment against the task's label.
 
-**IMPORTANT:** Use the axis definitions from `docs/axis-1-quality.md`, `docs/axis-2-severity.md`, `docs/axis-3-context-scope.md`, and `docs/axis-4-advanced.md` as your evaluation criteria. Read them if needed.
+**IMPORTANT:** Use the axis definitions from `docs/axis-1-quality.md`, `docs/axis-2-severity.md`, `docs/axis-3-context-scope.md`, and `docs/axis-4-advanced.md` as your evaluation criteria. Also consult `DOCUMENTATION.md` sections 8 (FAQ), 9 (Common Mistakes), and 10 (Tips) for edge cases and pitfalls. Read them if needed.
 
 ---
 
@@ -176,6 +176,10 @@ Ask: "What would the reviewer need to read to make this comment with confidence?
 - Files NOT changed by the PR? -> `repo`
 - Knowledge outside the repository? -> `external`
 
+**Cross-checks:**
+- Check step-03's "Beyond Diff" field against the context_scope label. If "Beyond Diff: No" but context_scope is not `diff`, flag the inconsistency.
+- Distinguish between what the analyst consulted (verification) and what the reviewer needed (observation). Context entries based on analyst verification alone should not inflate the scope.
+
 Also validate the context array entries: are they the right evidence? Is anything missing or extraneous?
 
 Record your independent label. Compare against the task's label.
@@ -184,6 +188,7 @@ Record your independent label. Compare against the task's label.
 |---|---|---|
 | V3 | Your independent context_scope label matches the task's label | If mismatch, explain your reasoning |
 | V4 | Context array entries are correct and complete | No missing evidence, no extraneous entries |
+| V3b | step-03 "Beyond Diff" is consistent with context_scope | "Beyond Diff: No" should align with `diff`; "Yes" should align with `file`/`repo`/`external` |
 
 ---
 

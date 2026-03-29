@@ -80,6 +80,7 @@ Re-read the `body` field with full context. Answer these questions and record th
    - Other parts of the same file?
    - Other files in the repo?
    - Knowledge outside the repo?
+   - **Important:** Distinguish between what you (the analyst) read to verify the comment and what the reviewer needed to make it. You may browse the full file to confirm a claim, but the reviewer might have seen enough in the diff alone. Record your honest assessment of the reviewer's minimum required context.
 
 4. **How impactful is the underlying issue (if real)?**
    - Would it cause a bug, security issue, or data loss?
@@ -99,11 +100,14 @@ Add to the Analysis section:
 - **Comment Verified:** Yes/No (matches body field)
 - **Issue Identified:** {1-2 sentence summary of what the comment points out}
 - **Factually Correct:** Yes/No/Partially — {brief explanation}
-- **Context Consulted:**
-  - {file_path}:{lines} — {why}
+- **Context Consulted (verification):**
+  - {file_path}:{lines} — {why you read this to verify the comment}
   - {other_file}:{lines} — {why} (if applicable)
+- **Context Needed (reviewer):**
+  - {file_path}:{lines} — {why the reviewer needed this to make the comment}
+  - (Only list what the reviewer minimally needed, not everything you read)
 - **Impact Assessment:** {brief assessment of the issue's real-world impact}
-- **Beyond Diff:** Yes/No — {brief explanation}
+- **Beyond Diff:** Yes/No — {brief explanation of what the reviewer needed, not what you consulted}
 ```
 
 ### 7. Update progress

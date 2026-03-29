@@ -9,6 +9,7 @@ Labels Axis 3 — Context Scope. Determines what level of context a reviewer wou
 ## Context
 > See `docs/axis-3-context-scope.md` for definitions, evaluation criteria, and examples.
 > See `docs/steps/step8.md` for the step-by-step process.
+> See `DOCUMENTATION.md` sections 8 (FAQ), 9 (Common Mistakes), and 10 (Tips) for edge cases and pitfalls.
 
 ## Arguments
 - `id` (required): Task ID
@@ -17,7 +18,10 @@ Labels Axis 3 — Context Scope. Determines what level of context a reviewer wou
 
 ### 1. Recover context
 
-Read `task_info.md` — specifically the "Comment Analysis" section (context consulted, files read).
+Read `task_info.md` — specifically the "Comment Analysis" section. Pay attention to:
+
+- **"Beyond Diff" field:** This is step-03's preliminary assessment of whether the reviewer needed context beyond the diff. Your context_scope label must be consistent with it. If you disagree, you must explain why in the reasoning.
+- **"Context Consulted":** This lists what the analyst read to verify the comment. Be careful: the analyst may have read more than the reviewer needed. For example, the analyst might browse the full file to confirm a claim, but the reviewer could have made the comment from the diff alone. Do not inflate scope based on what was consulted for verification.
 
 Update `progress.md`: step 06 status = "in-progress", Started = {timestamp ISO 8601}.
 
@@ -66,9 +70,13 @@ Document in 2-3 sentences:
 
 ### 5. Common mistakes to avoid
 
-- **Do NOT default to `diff` just because the comment is on a diff line.** The scope is about what the reviewer needed to know, not where the comment appears.
-- **Do NOT forget that `diff` can span multiple files.** If two diff hunks in different files were needed but nothing beyond the diff, it's still `diff`.
+- **Do NOT default to `diff` just because the comment is on a diff line.** The scope is about what the reviewer needed to know, not where the comment appears. (Mistake 3: Defaulting to Diff Scope)
+- **Do NOT forget that `diff` can span multiple files.** If two diff hunks in different files were needed but nothing beyond the diff, it's still `diff`. (FAQ #2)
 - **Do NOT set scope to `file` when `repo` is needed.** If you had to consult files not touched by the PR, the scope is `repo`.
+- **Do NOT conflate analyst verification with reviewer observation.** In step-03, you may have read the full file or browsed the repo to verify the comment's claims. That does not mean the reviewer needed that context to make the comment. Ask: "Could the reviewer have made this comment from the diff alone?" not "Did I read beyond the diff to check it?"
+- **Do NOT contradict step-03's "Beyond Diff" field without explanation.** If step-03 says "Beyond Diff: No" but you label `file`, or vice versa, state why you disagree in the reasoning.
+- **If context_scope is `file`, you still fill in `diff_line`** for any context entry that points to a specific line, including lines inside the diff. (FAQ #3)
+- **`diff_line` must be `null`** only for files NOT touched by the PR. For PR-touched files, always provide a line number or range unless the exact line is genuinely hard to locate.
 
 ### 6. Update task_info.md
 

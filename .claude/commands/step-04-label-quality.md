@@ -9,6 +9,7 @@ Labels Axis 1 — Quality. Determines whether the review comment is helpful, unh
 ## Context
 > See `docs/axis-1-quality.md` for definitions, evaluation criteria, and examples.
 > See `docs/steps/step6.md` for the step-by-step process.
+> See `DOCUMENTATION.md` sections 8 (FAQ), 9 (Common Mistakes), and 10 (Tips) for edge cases and pitfalls.
 
 ## Arguments
 - `id` (required): Task ID
@@ -50,9 +51,11 @@ Document your reasoning in 2-3 sentences:
 ### 4. Common mistakes to avoid
 
 Before finalizing, check against these common errors:
-- **Do NOT label as Wrong just because you disagree** with the suggestion. Wrong = factually false.
+- **Do NOT label as Wrong just because you disagree** with the suggestion. Wrong = factually false. (Mistake 1: Confusing Unhelpful with Wrong)
 - **Do NOT label as Helpful just because it sounds reasonable.** Verify it against the code.
 - **Do NOT label as Unhelpful just because it's about a small thing.** A correct, actionable comment about a real issue is Helpful, even if minor.
+- **Do NOT couple Quality and Severity.** A Wrong comment about a critical security issue is still Wrong. A Helpful comment about a naming nit is still Helpful. (Mistake 4)
+- A comment that restates what the code obviously does is **Unhelpful**, even if technically correct.
 
 ### 5. Update task_info.md
 

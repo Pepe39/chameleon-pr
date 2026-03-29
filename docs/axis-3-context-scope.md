@@ -35,9 +35,10 @@ DIFF      — Only the changed lines
 
 ### Key Rules
 
-- `diff` can span multiple files — as long as only the changed lines were needed.
+- `diff` can span multiple files -- as long as only the changed lines were needed.
 - The scope is about **what the reviewer needed to know**, not where the comment appears.
 - A comment on a diff line can require `repo` scope if the reviewer needed to read untouched files.
+- **Do not conflate analyst verification with reviewer observation.** During analysis you may read the full file or browse the repo to verify a comment's claims. That does not mean the reviewer needed that context to make the comment. The scope reflects what the reviewer minimally needed, not what you consulted.
 
 ### How to Record Context
 

@@ -386,6 +386,12 @@ These mistakes reduce dataset quality and hurt model training. Review these patt
 
 **The Fix:** Context Scope is about **what the reviewer needed to know**, not where the comment appears. A comment on a diff line might require reading the whole file or other files to verify.
 
+### Mistake 3b: Inflating Scope Based on Analyst Verification
+
+**The Mistake:** Choosing File or Repo scope because the analyst browsed the full file or repo to verify the comment's claims, even though the reviewer could have made the comment from the diff alone.
+
+**The Fix:** Context Scope reflects what the **reviewer** minimally needed to make the comment, not what the analyst read during verification. You may read the full file to confirm a pattern, but if the pattern was already visible in the diff's changed lines, the scope is still Diff. Always ask: "Could the reviewer have made this comment from the diff alone?" not "Did I read beyond the diff to check it?"
+
 ### Mistake 4: Coupling Quality and Severity
 
 **The Mistake:** Assuming that a Wrong comment must have Nit severity ("since the comment is wrong, the issue doesn't count"), or that Helpful must mean Critical.

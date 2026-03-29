@@ -9,6 +9,7 @@ Labels Axis 4 — Advanced. Determines whether the review comment goes beyond wh
 ## Context
 > See `docs/axis-4-advanced.md` for definitions, evaluation criteria, and examples.
 > See `docs/steps/step9.md` for the step-by-step process.
+> See `DOCUMENTATION.md` sections 8 (FAQ), 9 (Common Mistakes), and 10 (Tips) for edge cases and pitfalls.
 
 ## Arguments
 - `id` (required): Task ID
@@ -56,9 +57,10 @@ Document in 1-2 sentences:
 
 ### 5. Common mistakes to avoid
 
-- **Do NOT confuse "requires thinking" with "advanced."** A complex logic error visible in the diff is `false`.
-- **Advanced is about the source of knowledge**, not the difficulty of the analysis.
-- **Do NOT mark everything as `true`** just because the comment is non-trivial.
+- **Do NOT confuse "requires thinking" with "advanced."** A complex logic error visible in the diff is `false`. (Mistake 5: Marking Everything as Advanced)
+- **Advanced is about the source of knowledge**, not the difficulty of the analysis. It requires knowledge most reviewers wouldn't have from the diff alone: repo conventions, untouched files, or non-obvious framework behavior.
+- **Do NOT mark everything as `true`** just because the comment is non-trivial or insightful.
+- **If the comment could have been written by seeing only the changed lines, Advanced is `false`**, even if the comment is insightful or well-crafted.
 
 ### 6. Update task_info.md
 

@@ -9,6 +9,7 @@ Labels Axis 2 — Severity. Assesses how severe the issue is that the review com
 ## Context
 > See `docs/axis-2-severity.md` for definitions, evaluation criteria, and examples.
 > See `docs/steps/step7.md` for the step-by-step process.
+> See `DOCUMENTATION.md` sections 8 (FAQ), 9 (Common Mistakes), and 10 (Tips) for edge cases and pitfalls.
 
 **Critical reminder:** Severity measures the **issue itself**, NOT the quality or tone of the comment. These axes are independent.
 
@@ -53,9 +54,10 @@ Document your reasoning in 2-3 sentences:
 
 ### 5. Common mistakes to avoid
 
-- **Do NOT let the comment's tone influence severity.** "MUST FIX!" about a naming preference is still `nit`.
-- **Do NOT couple Quality and Severity.** A Wrong comment about a security vulnerability is `wrong + critical`.
+- **Do NOT let the comment's tone influence severity.** "MUST FIX!" about a naming preference is still `nit`. An urgently worded comment about a style preference is still `nit`. A calmly worded comment about a SQL injection is still `critical`. (Mistake 2)
+- **Do NOT couple Quality and Severity.** A Wrong comment about a security vulnerability is `wrong + critical`. A Helpful comment about a naming nit is `helpful + nit`. (Mistake 4)
 - **Rate by the most severe issue** if the comment mentions multiple problems.
+- **Context matters for the same pattern.** A missing null check in a rarely-used utility is `moderate`; the same check in a payment handler is `critical`.
 
 ### 6. Update task_info.md
 
