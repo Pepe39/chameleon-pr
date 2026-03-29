@@ -1,0 +1,337 @@
+# /review - Validate deliverables for a task
+
+Reviews a task's deliverables: re-evaluates each axis label against the evidence, validates reasoning quality, and checks format consistency.
+
+## Arguments
+- `$ARGUMENTS` (positional): Task ID. E.g.: `/review 2937204136`
+
+## Instructions
+
+### 1. Locate task
+
+First check if the task exists in `tasks/`:
+```bash
+find tasks/ -maxdepth 2 -type d -name "$ARGUMENTS" 2>/dev/null
+```
+
+- **If found** -> go to step 2 (load and review).
+- **If NOT found** -> go to step 1a (create review scaffold).
+
+---
+
+### 1a. Create review scaffold (task not found)
+
+The task does not exist locally. Create a review workspace so the user can paste the deliverables from the annotation platform or another source.
+
+1. Get current date in YYYY-MM-DD format.
+2. Create the directory structure:
+   ```bash
+   mkdir -p reviews/{date}/$ARGUMENTS/deliverables
+   mkdir -p reviews/{date}/$ARGUMENTS/work
+   ```
+
+3. Generate `reviews/{date}/$ARGUMENTS/inputs.md`:
+
+```markdown
+# Review Inputs
+
+Paste your task variables below. Fill in each field from the annotation platform.
+
+## Task Variables
+
+- **pull_request_url:** (paste here)
+- **nwo:** (paste here)
+- **head_sha:** (paste here)
+- **comment_id:** (paste here)
+- **body:** (paste here)
+- **file_path:** (paste here)
+- **diff_line:** (paste here)
+- **discussion_url:** (paste here)
+- **repo_url:** (paste here)
+- **coding_language:** (paste here)
+
+## Deliverables to Review
+
+Paste the content of each deliverable file:
+
+### labels.json
+Paste into: `reviews/{date}/$ARGUMENTS/deliverables/labels.json`
+
+### quality.md
+Paste into: `reviews/{date}/$ARGUMENTS/deliverables/quality.md`
+
+### severity.md
+Paste into: `reviews/{date}/$ARGUMENTS/deliverables/severity.md`
+
+### context_scope.md
+Paste into: `reviews/{date}/$ARGUMENTS/deliverables/context_scope.md`
+
+### advanced.md
+Paste into: `reviews/{date}/$ARGUMENTS/deliverables/advanced.md`
+```
+
+4. Generate empty placeholder deliverables:
+
+   - `reviews/{date}/$ARGUMENTS/deliverables/labels.json` (empty file)
+   - `reviews/{date}/$ARGUMENTS/deliverables/quality.md` (empty file)
+   - `reviews/{date}/$ARGUMENTS/deliverables/severity.md` (empty file)
+   - `reviews/{date}/$ARGUMENTS/deliverables/context_scope.md` (empty file)
+   - `reviews/{date}/$ARGUMENTS/deliverables/advanced.md` (empty file)
+
+5. Tell the user:
+
+```
+Review workspace created at reviews/{date}/$ARGUMENTS/
+
+Please paste the following into the corresponding files:
+  1. Task variables     -> inputs.md
+  2. labels.json        -> deliverables/labels.json
+  3. quality.md         -> deliverables/quality.md
+  4. severity.md        -> deliverables/severity.md
+  5. context_scope.md   -> deliverables/context_scope.md
+  6. advanced.md        -> deliverables/advanced.md
+
+Confirm when ready to continue.
+```
+
+6. **Wait for user confirmation.** Do NOT proceed until the user confirms.
+
+7. After confirmation, read `inputs.md` and validate all fields are filled (same rules as step-01-parse-inputs). If any field is missing, tell the user and wait.
+
+8. Once inputs are valid, build a `task_info.md` in the review directory by:
+   - Populating Input Data from the inputs
+   - Fetching PR info and diff using `gh` CLI (same as step-02-analyze-pr)
+   - Saving diff to `reviews/{date}/$ARGUMENTS/work/pr_diff.txt`
+   - Running comment analysis (same as step-03-analyze-comment) to populate Comment Analysis
+
+9. Continue to step 2, using the `reviews/{date}/$ARGUMENTS/` path as the task directory.
+
+---
+
+### 2. Load deliverables
+
+Determine the task directory (either `tasks/{date}/$ARGUMENTS/` or `reviews/{date}/$ARGUMENTS/`).
+
+If coming from `tasks/`, read `progress.md`. If not all 8 steps are "done", warn: "Task is incomplete (step {N} pending). Review may be partial."
+
+Read all files needed for review:
+- `task_info.md` (inputs, comment body, PR context, comment analysis)
+- `work/pr_diff.txt` (the actual diff)
+- `deliverables/labels.json`
+- `deliverables/quality.md`
+- `deliverables/severity.md`
+- `deliverables/context_scope.md`
+- `deliverables/advanced.md`
+
+If any deliverable file is missing or empty, report which ones and STOP.
+
+---
+
+### 3. Content validation (re-evaluate each axis)
+
+This is the core of the review. For each axis, independently re-derive what the label should be using the original evidence (comment body, diff, comment analysis). Then compare your independent assessment against the task's label.
+
+**IMPORTANT:** Use the axis definitions from `docs/axis-1-quality.md`, `docs/axis-2-severity.md`, `docs/axis-3-context-scope.md`, and `docs/axis-4-advanced.md` as your evaluation criteria. Read them if needed.
+
+---
+
+#### 3a. Re-evaluate Quality
+
+Re-read the comment body and the Comment Analysis from task_info.md. Apply the decision tree:
+
+1. Is the comment factually incorrect? (misunderstands code, would introduce a bug, false claim) -> `wrong`
+2. Does it identify a genuine issue, catch a real bug, or suggest a meaningful improvement? Is it actionable and specific? -> `helpful`
+3. Technically correct but no practical value? (pedantic, obvious, not actionable) -> `unhelpful`
+
+Record your independent label. Compare against the task's label.
+
+| # | Check | Rule |
+|---|---|---|
+| V1 | Your independent quality label matches the task's label | If mismatch, explain your reasoning and why you disagree |
+
+---
+
+#### 3b. Re-evaluate Severity
+
+Isolate the underlying issue (regardless of comment correctness). Assess real-world impact:
+
+- Can be safely ignored or deferred? -> `nit`
+- Affects behavior but unlikely to cause serious harm? -> `moderate`
+- Senior engineer would insist on fixing before merge? -> `critical`
+
+Record your independent label. Compare against the task's label.
+
+| # | Check | Rule |
+|---|---|---|
+| V2 | Your independent severity label matches the task's label | If mismatch, explain your reasoning and why you disagree |
+
+---
+
+#### 3c. Re-evaluate Context Scope
+
+Ask: "What would the reviewer need to read to make this comment with confidence?"
+
+- Only changed lines (possibly across files)? -> `diff`
+- Beyond diff hunks but within PR-touched files? -> `file`
+- Files NOT changed by the PR? -> `repo`
+- Knowledge outside the repository? -> `external`
+
+Also validate the context array entries: are they the right evidence? Is anything missing or extraneous?
+
+Record your independent label. Compare against the task's label.
+
+| # | Check | Rule |
+|---|---|---|
+| V3 | Your independent context_scope label matches the task's label | If mismatch, explain your reasoning |
+| V4 | Context array entries are correct and complete | No missing evidence, no extraneous entries |
+
+---
+
+#### 3d. Re-evaluate Advanced
+
+Ask: "Could a reviewer make this comment by looking only at the changed lines in the diff?"
+
+Label `true` if the comment meets one or more:
+- Repo-specific conventions
+- Context outside changed files
+- Recent language/library updates
+- Better implementation approach (not just style)
+
+Label `false` if the issue is visible directly in the diff.
+
+Record your independent label. Compare against the task's label.
+
+| # | Check | Rule |
+|---|---|---|
+| V5 | Your independent advanced label matches the task's label | If mismatch, explain your reasoning |
+
+---
+
+### 4. Reasoning validation
+
+For each axis, evaluate the reasoning in the deliverable .md file:
+
+| # | Check | Rule |
+|---|---|---|
+| R1 | **Accurate:** Does the reasoning make claims that are true? Verify each factual claim against the code/diff | No false statements |
+| R2 | **Sufficient:** Does the reasoning explain WHY this label was chosen, not just restate the label? | Must contain evidence, not just conclusion |
+| R3 | **Self-contained:** Could someone reading only the reasoning understand the justification without needing task_info.md or other files? | No references to "see above", "as noted in analysis", etc. |
+| R4 | **Concise:** Is the reasoning focused (2-3 sentences for quality/severity, 1-2 for advanced) without filler? | No unnecessary padding |
+| R5 | **Aligned:** Does the reasoning actually support the label chosen? (e.g., reasoning describes a critical bug but label is "nit") | Reasoning must logically lead to the label |
+
+---
+
+### 5. Format and consistency checks
+
+Run these as secondary validation:
+
+#### 5a. labels.json format
+
+| # | Check | Rule |
+|---|---|---|
+| F1 | `quality` is one of: `helpful`, `unhelpful`, `wrong` | Exact string match |
+| F2 | `severity` is one of: `nit`, `moderate`, `critical` | Exact string match |
+| F3 | `context_scope` is one of: `diff`, `file`, `repo`, `external` | Exact string match |
+| F4 | `advanced` is a boolean (`true` or `false`), not a string | Type check |
+| F5 | Each context entry has `diff_line` (string or null), `file_path` (string), `why` (string) | Field + type check |
+| F6 | No `diff_line` value is a number | Type check |
+| F7 | If context_scope is not `external`, context has >= 1 entry | Array length |
+| F8 | JSON is valid and uses 2-space indentation | Parse + format check |
+
+#### 5b. Label consistency (md files vs labels.json)
+
+| # | Check | Rule |
+|---|---|---|
+| C1 | quality.md `## Label` matches `labels.json.quality` | Exact match |
+| C2 | severity.md `## Label` matches `labels.json.severity` | Exact match |
+| C3 | context_scope.md `## Label` matches `labels.json.context_scope` | Exact match |
+| C4 | advanced.md `## Label` matches `labels.json.advanced` (as "true"/"false") | Match after type coercion |
+| C5 | context_scope.md Context Evidence table matches `labels.json.context` entries | Row-by-row comparison |
+
+#### 5c. diff_line validation
+
+| # | Check | Rule |
+|---|---|---|
+| D1 | Context entries for files NOT in the PR's changed files have `diff_line: null` | Cross-ref with Changed Files List |
+| D2 | Context entries for files IN the PR's changed files have non-null `diff_line` | Unless exact line is hard to locate |
+
+#### 5d. Wording rules (CLAUDE.md compliance)
+
+Scan all reasoning sections and `why` fields for prohibited characters:
+
+| # | Check | Prohibited |
+|---|---|---|
+| W1 | No em-dashes (`\u2014`) | Use commas, semicolons, or split sentences |
+| W2 | No en-dashes (`\u2013`) | Use hyphens for ranges |
+| W3 | No ellipsis character (`\u2026`) | Use three dots (`...`) |
+| W4 | No smart/curly quotes (`\u201c \u201d \u2018 \u2019`) | Use straight quotes |
+
+---
+
+### 6. Report results
+
+Display in this format:
+
+```
+== Review: {id} ==
+
+CONTENT VALIDATION (axis re-evaluation)
+  V1  quality .................... AGREE / DISAGREE
+  V2  severity ................... AGREE / DISAGREE
+  V3  context_scope .............. AGREE / DISAGREE
+  V4  context array .............. PASS / FAIL
+  V5  advanced ................... AGREE / DISAGREE
+
+  [For each DISAGREE, show:]
+  V{N} DISAGREE: Task says "{task_label}", reviewer says "{your_label}"
+       Reason: {why you disagree, 1-2 sentences}
+
+REASONING VALIDATION
+  R1  Accurate ................... PASS / FAIL (per axis)
+  R2  Sufficient ................. PASS / FAIL (per axis)
+  R3  Self-contained ............. PASS / FAIL (per axis)
+  R4  Concise .................... PASS / FAIL (per axis)
+  R5  Aligned .................... PASS / FAIL (per axis)
+
+  [For each FAIL, show which axis and why]
+
+FORMAT & CONSISTENCY
+  F1-F8  labels.json ............. PASS / {N} issues
+  C1-C5  md vs json .............. PASS / {N} issues
+  D1-D2  diff_line ............... PASS / {N} issues
+  W1-W4  wording ................. PASS / {N} issues
+
+---
+SUMMARY:
+  Content:   {N}/5 axes agree, {N} disagree
+  Reasoning: {N}/5 axes pass all checks
+  Format:    {N} passed, {N} failed
+  Overall:   CLEAN / NEEDS REVISION
+```
+
+---
+
+### 7. If DISAGREE on any axis
+
+For each disagreement:
+1. Show both labels side by side with reasoning
+2. Reference the specific evidence (code lines, diff sections) that supports your assessment
+3. Ask: "Do you want to update this label? (yes/no/discuss)"
+   - **yes** -> Update labels.json and the corresponding .md file, then re-run consistency checks
+   - **no** -> Keep the original label, note it as "reviewed, kept as-is"
+   - **discuss** -> Present the arguments for and against each label and let the user decide
+
+### 8. If reasoning FAIL on any axis
+
+For each failure:
+1. Quote the problematic reasoning
+2. Explain what is wrong (inaccurate claim, missing evidence, not self-contained, etc.)
+3. Propose a corrected reasoning
+4. Ask: "Apply this fix? (yes/no)"
+
+### 9. If format failures exist
+
+For each format FAIL:
+1. Show what was expected vs found
+2. Ask: "Fix these automatically? (yes/no)"
+3. If yes, apply fixes and re-run checks

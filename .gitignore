@@ -1,0 +1,24 @@
+# Task and review data (contains PR diffs, API responses, work artifacts)
+tasks/
+reviews/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*
