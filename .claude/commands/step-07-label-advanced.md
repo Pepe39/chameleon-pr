@@ -24,43 +24,45 @@ Update `progress.md`: step 07 status = "in-progress", Started = {timestamp ISO 8
 
 ### 2. Apply the criteria
 
-Ask: "Could a reviewer make this comment by looking only at the changed lines in the diff?"
+Ask: "Could a reviewer make this comment by looking only at the changed lines in the diff?" If yes, the label is `False`. If no, select the specific category that best explains why.
 
-**Label `true` if the comment meets ONE OR MORE of these criteria:**
+**Select the category that best fits. If more than one applies, pick the primary driver.**
 
-| Criterion | What to look for |
+| Category (platform value) | What to look for |
 |---|---|
-| **Repo-Specific Conventions** | Does the comment reference patterns, conventions, or architectural decisions specific to this repo? |
-| **Context Outside Changed Files** | Does the comment require knowledge from files not touched by the PR? |
-| **Recent Language / Library Updates** | Does the comment require awareness of recent or non-obvious language/framework behavior? |
-| **Better Implementation Approach** | Does the comment suggest a fundamentally better design, algorithm, or API usage (not just style)? |
+| **Repo-specific conventions** | Does the comment reference patterns, conventions, or architectural decisions specific to this repo? |
+| **Context outside changed files** | Does the comment require knowledge from files not touched by the PR? |
+| **Recent language/library updates** | Does the comment require awareness of recent or non-obvious language/framework behavior? |
+| **Better implementation approach** | Does the comment suggest a fundamentally better design, algorithm, or API usage (not just style)? |
+| **False** | The issue is visible directly in the diff and a reviewer could make this comment from the changed lines alone. |
 
-**Label `false` if:**
+**Label `False` if:**
 - The issue is visible directly in the diff (typos, syntax errors, obvious logic bugs)
 - A reviewer could make this comment from the changed lines alone
-- Even if the comment is insightful, if derivable from the diff alone -> `false`
+- Even if the comment is insightful, if derivable from the diff alone -> `False`
 
 ### 3. Cross-check with Context Scope
 
 Use the Context Scope label from step 06 as a signal (but not a rule):
-- If context_scope = `diff` -> Advanced is **likely** `false` (but not always)
-- If context_scope = `repo` or `external` -> Advanced is **likely** `true` (but not always)
+- If context_scope = `diff` -> Advanced is **likely** `False` (but not always)
+- If context_scope = `repo` or `external` -> Advanced is **likely** a specific category (but not always)
 - If context_scope = `file` -> could go either way
 
-**These are correlations, not rules.** A comment can be `diff` scope but `true` advanced (e.g., it suggests a better algorithm that requires framework expertise). A comment can be `repo` scope but `false` advanced (e.g., a standard code review check like "this import is unused" verified by reading another file).
+**These are correlations, not rules.** A comment can be `diff` scope but advanced (e.g., it suggests a better algorithm that requires framework expertise). A comment can be `repo` scope but `False` (e.g., a standard code review check like "this import is unused" verified by reading another file).
 
 ### 4. Write reasoning
 
 Document in 1-2 sentences:
 - Whether the comment could be made from the diff alone
-- If `true`, which specific criterion it meets
+- If not `False`, which specific category was selected and why
 
 ### 5. Common mistakes to avoid
 
-- **Do NOT confuse "requires thinking" with "advanced."** A complex logic error visible in the diff is `false`. (Mistake 5: Marking Everything as Advanced)
+- **Do NOT confuse "requires thinking" with "advanced."** A complex logic error visible in the diff is `False`. (Mistake 5: Marking Everything as Advanced)
 - **Advanced is about the source of knowledge**, not the difficulty of the analysis. It requires knowledge most reviewers wouldn't have from the diff alone: repo conventions, untouched files, or non-obvious framework behavior.
-- **Do NOT mark everything as `true`** just because the comment is non-trivial or insightful.
-- **If the comment could have been written by seeing only the changed lines, Advanced is `false`**, even if the comment is insightful or well-crafted.
+- **Do NOT select a category** just because the comment is non-trivial or insightful.
+- **If the comment could have been written by seeing only the changed lines, Advanced is `False`**, even if the comment is insightful or well-crafted.
+- **If multiple categories apply**, pick the one that is the primary driver of the comment's insight.
 
 ### 6. Update task_info.md
 
@@ -68,7 +70,7 @@ Add to the Labels section:
 
 ```markdown
 ### Advanced
-- **Label:** {true | false}
+- **Label:** {Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach | False}
 - **Reasoning:** {1-2 sentences explaining the decision}
 ```
 

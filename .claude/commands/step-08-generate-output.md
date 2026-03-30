@@ -27,7 +27,7 @@ Collect from task_info.md:
 - **Severity:** {nit | moderate | critical}
 - **Context Scope:** {diff | file | repo | external}
 - **Context Array:** [{entries}]
-- **Advanced:** {true | false}
+- **Advanced:** {Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach | False}
 
 ### 3. Validate consistency (GATE)
 
@@ -37,14 +37,14 @@ Run these checks before generating output. If any check fails, report to the use
 - [ ] Quality is one of: `helpful`, `unhelpful`, `wrong`
 - [ ] Severity is one of: `nit`, `moderate`, `critical`
 - [ ] Context Scope is one of: `diff`, `file`, `repo`, `external`
-- [ ] Advanced is one of: `true`, `false`
+- [ ] Advanced is one of: `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`, `False`
 - [ ] Context array is valid JSON (array of objects with diff_line, file_path, why)
 - [ ] If context_scope is `diff`, `file`, or `repo`, the context array has at least 1 entry
 - [ ] If context_scope is `external`, the context array may be empty
 
 **Independence checks (warnings, not blockers):**
 - If Quality = `wrong` AND Severity = `nit`, flag for review: "Verify: the issue the comment tried to flag is truly nit-level, even though the comment is wrong."
-- If Quality = `helpful` AND Advanced = `false` AND Context Scope = `repo`, flag for review: "Verify: the comment requires repo-level context but is not considered advanced?"
+- If Quality = `helpful` AND Advanced = `False` AND Context Scope = `repo`, flag for review: "Verify: the comment requires repo-level context but is not considered advanced?"
 
 ### 4. Generate labels.json
 
@@ -62,13 +62,13 @@ Write `tasks/{date}/{id}/deliverables/labels.json`:
       "why": "{value}"
     }
   ],
-  "advanced": {true_or_false}
+  "advanced": "{category_or_False}"
 }
 ```
 
 **Formatting rules:**
 - Use 2-space indentation
-- `advanced` must be a boolean (`true`/`false`), not a string
+- `advanced` must be a string matching one of the platform categories or `"False"`
 - `diff_line` must be a string or `null`, not a number
 - All string values must be properly escaped
 
@@ -167,7 +167,7 @@ Write one markdown file per axis inside `tasks/{date}/{id}/deliverables/`.
 - **PR:** {pull_request_url}
 
 ## Label
-**{true | false}**
+**{Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach | False}**
 
 ## Reasoning
 {reasoning from step 07}
