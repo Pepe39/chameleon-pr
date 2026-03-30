@@ -32,12 +32,22 @@ Read the comment body and the analysis from step 03. Follow this decision tree s
    introduce a bug, or make a false claim about the language/framework?
    -> Yes: WRONG
 
-2. Does the comment identify a genuine issue, catch a real bug,
-   or suggest a meaningful improvement? Is it actionable and specific?
-   -> Yes: HELPFUL
+2. Does the comment go directly to the root cause of the problem?
+   Does it identify the actual underlying issue, not just a symptom
+   or side effect? Is it actionable and specific about the root problem?
+   -> No: UNHELPFUL
+   -> Yes: continue to 3
 
-3. Is the comment technically correct but adds no practical value?
-   (pedantic, obvious, stylistic without substance, not actionable)
+3. Is the suggestion accurate against the full repo context?
+   Does the proposed fix or functionality already exist in the codebase?
+   Would the change duplicate what the repo already provides?
+   -> Already exists / redundant: UNHELPFUL
+   -> Validated, not redundant: HELPFUL
+
+4. Is the comment factually correct but does NOT target the root cause?
+   Does it point at a symptom, a tangential concern, or a side effect
+   instead of the actual root problem? Or is it pedantic, obvious,
+   stylistic without substance, or not actionable?
    -> UNHELPFUL
 ```
 
@@ -52,10 +62,13 @@ Document your reasoning in 2-3 sentences:
 
 Before finalizing, check against these common errors:
 - **Do NOT label as Wrong just because you disagree** with the suggestion. Wrong = factually false. (Mistake 1: Confusing Unhelpful with Wrong)
-- **Do NOT label as Helpful just because it sounds reasonable.** Verify it against the code.
-- **Do NOT label as Unhelpful just because it's about a small thing.** A correct, actionable comment about a real issue is Helpful, even if minor.
+- **Do NOT label as Helpful just because it sounds reasonable or is factually correct.** Helpful requires that the comment targets the root cause of the problem, not just a symptom or side effect, AND that the suggestion is validated against the full repo context.
+- **Always validate against the full repo.** If the comment proposes a fix or functionality that already exists in the codebase, it is Unhelpful. The correct approach would be to use what already exists, not recreate it.
+- **Do NOT assume Unhelpful means factually incorrect.** A comment can be true, identify a real observation, and still be unhelpful if it does not go to the root problem.
+- **Do NOT label as Unhelpful just because it's about a small thing.** A correct, actionable comment that targets the root cause is Helpful, even if minor.
 - **Do NOT couple Quality and Severity.** A Wrong comment about a critical security issue is still Wrong. A Helpful comment about a naming nit is still Helpful. (Mistake 4)
 - A comment that restates what the code obviously does is **Unhelpful**, even if technically correct.
+- A comment that points at a real symptom but misses the root cause is **Unhelpful**, even if factually accurate.
 
 ### 5. Update task_info.md
 

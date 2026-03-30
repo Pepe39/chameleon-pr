@@ -183,15 +183,54 @@ Normalize labels to lowercase for comparison (e.g., "Helpful" -> "helpful", "Nit
 
 ---
 
-### 3. Content validation (re-evaluate each axis)
+### 3. Data consistency verification
+
+Before re-evaluating the axis labels, verify that the task data is internally consistent. Fetch the repo at head_sha if not already done.
+
+#### 3a. Verify the PR matches the comment
+- Does the PR contain the file referenced in file_path?
+- Does the PR diff include changes at or near diff_line?
+- Is the comment (body) relevant to the changes in this PR?
+- If the comment seems unrelated to the PR, flag it.
+
+#### 3b. Verify the head_sha contains the problem
+- Fetch the target file at head_sha:
+  ```bash
+  gh api "repos/{nwo}/contents/{file_path}?ref={head_sha}" --jq '.content' | base64 -d
+  ```
+- At head_sha, does the code exhibit the issue described in the comment?
+- If YES: record "Problem confirmed at head_sha."
+- If NO: record this finding. This is critical; it may mean the comment is **wrong** or **unhelpful**. Do not assume automatically; analyze why.
+- If already fixed at head_sha: record "Problem not present at head_sha; may have been fixed before the comment."
+
+#### 3c. Verify the PR resolves what it claims
+- Does the PR (title, description, changes) address what it claims?
+- Are there gaps between what the PR says it does and what the diff shows?
+
+#### 3d. Record and gate
+
+| # | Check | Rule |
+|---|---|---|
+| C1 | PR contains file_path in its changed files | Critical mismatch if no |
+| C2 | Problem exists at head_sha | If not found, flag for quality label impact |
+| C3 | PR resolves its stated claims | Informational; discrepancies noted |
+
+**If C1 fails** (file not in PR): report to the user and STOP.
+**If C2 fails** (problem not at head_sha): continue but factor this into the quality re-evaluation. A comment claiming an issue that does not exist at head_sha is likely wrong or unhelpful.
+
+---
+
+### 4. Content validation (re-evaluate each axis)
 
 This is the core of the review. For each axis, independently re-derive what the label should be using the original evidence (comment body, diff, comment analysis). Then compare your independent assessment against the task's label.
 
 **IMPORTANT:** Use the axis definitions from `docs/axis-1-quality.md`, `docs/axis-2-severity.md`, `docs/axis-3-context-scope.md`, and `docs/axis-4-advanced.md` as your evaluation criteria. Also consult `DOCUMENTATION.md` sections 8 (FAQ), 9 (Common Mistakes), and 10 (Tips) for edge cases and pitfalls. Read them if needed.
 
+**IMPORTANT:** Factor in the data consistency findings from step 3. If the problem was not found at head_sha, this must influence your quality assessment.
+
 ---
 
-#### 3a. Re-evaluate Quality
+#### 4a. Re-evaluate Quality
 
 Re-read the comment body and the Comment Analysis from task_info.md. Apply the decision tree:
 
@@ -207,7 +246,7 @@ Record your independent label. Compare against the task's label.
 
 ---
 
-#### 3b. Re-evaluate Severity
+#### 4b. Re-evaluate Severity
 
 Isolate the underlying issue (regardless of comment correctness). Assess real-world impact:
 
@@ -223,7 +262,7 @@ Record your independent label. Compare against the task's label.
 
 ---
 
-#### 3c. Re-evaluate Context Scope
+#### 4c. Re-evaluate Context Scope
 
 Ask: "What would the reviewer need to read to make this comment with confidence?"
 
@@ -248,7 +287,7 @@ Record your independent label. Compare against the task's label.
 
 ---
 
-#### 3d. Re-evaluate Advanced
+#### 4d. Re-evaluate Advanced
 
 Ask: "Could a reviewer make this comment by looking only at the changed lines in the diff?"
 
@@ -268,7 +307,7 @@ Record your independent label. Compare against the task's label.
 
 ---
 
-### 4. Reasoning validation
+### 5. Reasoning validation
 
 For each axis, evaluate the reasoning extracted from the deliverable .md file:
 
@@ -282,7 +321,7 @@ For each axis, evaluate the reasoning extracted from the deliverable .md file:
 
 ---
 
-### 5. Format and consistency checks
+### 6. Format and consistency checks
 
 Run these as secondary validation:
 
@@ -322,12 +361,17 @@ Scan all reasoning sections and `why` fields for prohibited characters:
 
 ---
 
-### 6. Report results
+### 7. Report results
 
 Display in this format:
 
 ```
 == Review: {id} ==
+
+DATA CONSISTENCY
+  C1  PR contains file_path ...... PASS / FAIL
+  C2  Problem at head_sha ........ Confirmed / Not found / Already fixed
+  C3  PR resolves its claims ..... Yes / Partially / No
 
 CONTENT VALIDATION (axis re-evaluation)
   V1  quality .................... AGREE / DISAGREE
@@ -365,7 +409,7 @@ SUMMARY:
 
 ---
 
-### 7. Applying fixes
+### 8. Applying fixes
 
 When the user approves a fix (label change, reasoning rewrite, or format correction), write the corrected file into `fixed_deliverables/` inside the task directory, **not** into `deliverables/`.
 
@@ -383,7 +427,7 @@ This keeps the original deliverables intact for comparison and gives the user a 
 
 ---
 
-### 8. If DISAGREE on any axis
+### 9. If DISAGREE on any axis
 
 For each disagreement:
 1. Show both labels side by side with reasoning
@@ -393,7 +437,7 @@ For each disagreement:
    - **no** -> Keep the original label, note it as "reviewed, kept as-is"
    - **discuss** -> Present the arguments for and against each label and let the user decide
 
-### 9. If reasoning FAIL on any axis
+### 10. If reasoning FAIL on any axis
 
 For each failure:
 1. Quote the problematic reasoning
@@ -402,7 +446,7 @@ For each failure:
 4. Ask: "Apply this fix? (yes/no)"
 5. If yes, write corrected file to `fixed_deliverables/`
 
-### 10. If format failures exist
+### 11. If format failures exist
 
 For each format FAIL:
 1. Show what was expected vs found
@@ -411,7 +455,7 @@ For each format FAIL:
 
 ---
 
-### 11. Generate feedback_to_cb.md
+### 12. Generate feedback_to_cb.md
 
 After all fixes are applied (or if review is CLEAN), generate `{task_dir}/feedback_to_cb.md`.
 

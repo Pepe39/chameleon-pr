@@ -91,7 +91,41 @@ Re-read the `body` field with full context. Answer these questions and record th
    - Could a reviewer make this comment from the changed lines alone?
    - Does it reference repo conventions, untouched files, or framework specifics?
 
-### 6. Update task_info.md
+### 6. Data consistency verification (GATE)
+
+Before updating task_info.md, verify that the task inputs are internally consistent. This catches mismatched data early, before labeling begins.
+
+**6a. Verify the PR matches the comment**
+- Does the PR (pull_request_url) contain the file referenced in file_path?
+- Does the PR diff include changes at or near diff_line?
+- Is the comment (body) relevant to the changes in this PR?
+- If the comment seems unrelated to the PR's purpose, flag it but continue (the comment may be wrong or unhelpful).
+
+**6b. Verify the head_sha contains the problem**
+- At head_sha, does the code exhibit the issue described in the comment?
+- If YES: record "Problem confirmed at head_sha."
+- If NO (the problem does not exist at head_sha): record this finding. This is critical context for labeling; it may mean the comment is **wrong** (claims something that is not true) or **unhelpful** (the issue was already fixed before the comment was made). Do not assume wrong automatically; analyze why the mismatch exists.
+- If the code at head_sha has ALREADY been fixed (e.g., a later commit addressed the issue before the comment): record "Problem not present at head_sha; may have been fixed in a subsequent commit."
+
+**6c. Verify the PR resolves what it claims**
+- Does the PR (title, description, changes) address what it claims to address?
+- Are there obvious gaps between what the PR says it does and what the diff shows?
+- Record any discrepancies. These do not block labeling but provide context.
+
+**6d. Record findings**
+
+Add a consistency section to the analysis:
+
+```markdown
+### Data Consistency
+- **PR matches comment:** Yes/No - {brief explanation}
+- **Problem at head_sha:** Confirmed/Not found/Already fixed - {brief explanation}
+- **PR resolves its claims:** Yes/Partially/No - {brief explanation}
+```
+
+**If any check reveals a critical mismatch** (e.g., the file does not exist in the PR, the head_sha points to a completely different state), report to the user and STOP. Minor discrepancies should be recorded and factored into labeling.
+
+### 7. Update task_info.md
 
 Add to the Analysis section:
 
@@ -108,8 +142,13 @@ Add to the Analysis section:
   - (Only list what the reviewer minimally needed, not everything you read)
 - **Impact Assessment:** {brief assessment of the issue's real-world impact}
 - **Beyond Diff:** Yes/No — {brief explanation of what the reviewer needed, not what you consulted}
+
+### Data Consistency
+- **PR matches comment:** Yes/No — {brief explanation}
+- **Problem at head_sha:** Confirmed/Not found/Already fixed — {brief explanation}
+- **PR resolves its claims:** Yes/Partially/No — {brief explanation}
 ```
 
-### 7. Update progress
+### 8. Update progress
 
 Update `progress.md`: step 03 status = "done", Completed = {timestamp ISO 8601}, Current Step = 04 - Label Quality.
