@@ -38,9 +38,22 @@ Extract and record:
 
 ### 3. Fetch the diff
 
+**Important:** The diff must reflect the PR state at `head_sha` from the task inputs, not the current PR state. The PR may have been updated after the comment was made, so `gh pr diff` (which returns the current diff) can be stale or different.
+
+Use the GitHub compare API to get the diff at the exact `head_sha`:
+
+```bash
+gh api repos/{nwo}/compare/main...{head_sha} --jq '.files[] | {filename, patch, status}'
+```
+
+If the above fails or returns incomplete data, fall back to:
+
 ```bash
 gh pr diff {pr_number} --repo {nwo}
 ```
+
+But if using the fallback, add a warning to `task_info.md`:
+> **Warning:** Diff fetched from current PR state, not from head_sha. The PR may have been updated after the comment was made. Verify diff accuracy against the comment's diff_hunk if results seem inconsistent.
 
 Save the full diff to `tasks/{date}/{id}/work/pr_diff.txt` for reference.
 

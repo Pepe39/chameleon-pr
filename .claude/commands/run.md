@@ -5,6 +5,10 @@ Creates new tasks or resumes existing ones from where they left off.
 ## Arguments
 - `$ARGUMENTS` (positional): Task ID. E.g.: `/run 2937204136`
 
+## Ground Rule
+
+**Task isolation:** During task execution, focus only on the task (PR, diff, comment, labeling). Do not modify project docs, guides, commands, or templates. If you notice a pipeline issue, finish the task first, then report it.
+
 ## Instructions
 
 ### 1. Locate task

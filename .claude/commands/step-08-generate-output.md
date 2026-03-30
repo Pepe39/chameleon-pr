@@ -72,7 +72,33 @@ Write `tasks/{date}/{id}/deliverables/labels.json`:
 - `diff_line` must be a string or `null`, not a number
 - All string values must be properly escaped
 
-### 5. Generate per-axis deliverables
+### 5. Generate context.json
+
+Write `tasks/{date}/{id}/deliverables/context.json` using the table format from `table-template.json`.
+
+Map the context array entries to the table column IDs:
+- `_dshks` = `diff_line` value (string or empty string if null)
+- `ahMYbl` = `file_path` value
+- `dA0ihr` = `why` value
+
+```json
+{
+  "rows": [
+    {
+      "_dshks": "{diff_line_or_empty}",
+      "ahMYbl": "{file_path}",
+      "dA0ihr": "{why}"
+    }
+  ]
+}
+```
+
+**Rules:**
+- If `diff_line` is `null`, use an empty string `""` for `_dshks`
+- One row per context array entry
+- Use 2-space indentation
+
+### 6. Generate per-axis deliverables
 
 Write one markdown file per axis inside `tasks/{date}/{id}/deliverables/`.
 
@@ -147,13 +173,14 @@ Write one markdown file per axis inside `tasks/{date}/{id}/deliverables/`.
 {reasoning from step 07}
 ```
 
-### 6. Update task_info.md
+### 7. Update task_info.md
 
 Add to the Output section:
 
 ```markdown
 ## Output
 - **labels.json:** deliverables/labels.json
+- **context.json:** deliverables/context.json
 - **quality.md:** deliverables/quality.md
 - **severity.md:** deliverables/severity.md
 - **context_scope.md:** deliverables/context_scope.md
@@ -162,13 +189,13 @@ Add to the Output section:
 - **Validation:** PASSED / PASSED WITH WARNINGS
 ```
 
-### 7. Update progress
+### 8. Update progress
 
 Update `progress.md`: step 08 status = "done", Completed = {timestamp ISO 8601}.
 
 Set Current Step to: "ALL COMPLETE"
 
-### 8. Final message
+### 9. Final message
 
 Display:
 
@@ -178,6 +205,7 @@ All 8 steps completed.
 
 Output files:
   - deliverables/labels.json (for submission)
+  - deliverables/context.json (context table for platform)
   - deliverables/quality.md
   - deliverables/severity.md
   - deliverables/context_scope.md

@@ -118,6 +118,7 @@ Read all files needed for review:
 - `task_info.md` (inputs, comment body, PR context, comment analysis)
 - `work/pr_diff.txt` (the actual diff)
 - `deliverables/labels.json`
+- `deliverables/context.json`
 - `deliverables/quality.md`
 - `deliverables/severity.md`
 - `deliverables/context_scope.md`
@@ -243,6 +244,16 @@ Run these as secondary validation:
 | F7 | If context_scope is not `external`, context has >= 1 entry | Array length |
 | F8 | JSON is valid and uses 2-space indentation | Parse + format check |
 
+#### 5a2. context.json format
+
+| # | Check | Rule |
+|---|---|---|
+| F9 | `context.json` exists and is valid JSON | Parse check |
+| F10 | Has a `rows` array | Structure check |
+| F11 | Each row has keys `_dshks`, `ahMYbl`, `dA0ihr` | Field check |
+| F12 | Number of rows matches `labels.json.context` array length | Count match |
+| F13 | Row values match `labels.json.context` entries: `_dshks` = `diff_line` (or `""` if null), `ahMYbl` = `file_path`, `dA0ihr` = `why` | Value-by-value comparison |
+
 #### 5b. Label consistency (md files vs labels.json)
 
 | # | Check | Rule |
@@ -301,10 +312,11 @@ REASONING VALIDATION
   [For each FAIL, show which axis and why]
 
 FORMAT & CONSISTENCY
-  F1-F8  labels.json ............. PASS / {N} issues
-  C1-C5  md vs json .............. PASS / {N} issues
-  D1-D2  diff_line ............... PASS / {N} issues
-  W1-W4  wording ................. PASS / {N} issues
+  F1-F8   labels.json ............ PASS / {N} issues
+  F9-F13  context.json ........... PASS / {N} issues
+  C1-C5   md vs json ............. PASS / {N} issues
+  D1-D2   diff_line .............. PASS / {N} issues
+  W1-W4   wording ................ PASS / {N} issues
 
 ---
 SUMMARY:

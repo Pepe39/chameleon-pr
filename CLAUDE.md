@@ -1,5 +1,15 @@
 # Project Instructions
 
+## Task Isolation Rule
+
+During task execution (steps 01-08), focus exclusively on the task at hand: the PR, the diff, the comment, and the labeling. Do NOT:
+- Modify project documentation, guides, commands, or templates
+- Refactor or improve the labeling pipeline itself
+- Update CLAUDE.md, DOCUMENTATION.md, axis docs, or step commands
+- Fix issues found in guides or commands mid-task
+
+If you notice a problem with the guides or pipeline during a task, finish the task first, then report the issue to the user. Meta-work (improving docs, fixing commands, adding features to the pipeline) must be requested explicitly by the user outside of task execution.
+
 ## Wording Rules
 
 These rules apply to ALL text output: reasoning fields, deliverable .md files, task_info.md, and any user-facing text.
