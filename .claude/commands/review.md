@@ -2,6 +2,8 @@
 
 Reviews a task's deliverables: re-evaluates each axis label against the evidence, validates reasoning quality, and checks format consistency.
 
+Deliverables are the 4 axis `.md` files copied from the annotation platform.
+
 ## Arguments
 - `$ARGUMENTS` (positional): Task ID. E.g.: `/review 2937204136`
 
@@ -21,7 +23,7 @@ find tasks/ -maxdepth 2 -type d -name "$ARGUMENTS" 2>/dev/null
 
 ### 1a. Create review scaffold (task not found)
 
-The task does not exist locally. Create a review workspace so the user can paste the deliverables from the annotation platform or another source.
+The task does not exist locally. Create a review workspace so the user can paste the deliverables from the annotation platform.
 
 1. Get current date in YYYY-MM-DD format.
 2. Create the directory structure:
@@ -52,10 +54,7 @@ Paste your task variables below. Fill in each field from the annotation platform
 
 ## Deliverables to Review
 
-Paste the content of each deliverable file:
-
-### labels.json
-Paste into: `reviews/{date}/$ARGUMENTS/deliverables/labels.json`
+Paste the content of each deliverable file (copy-paste from the annotation platform):
 
 ### quality.md
 Paste into: `reviews/{date}/$ARGUMENTS/deliverables/quality.md`
@@ -72,7 +71,6 @@ Paste into: `reviews/{date}/$ARGUMENTS/deliverables/advanced.md`
 
 4. Generate empty placeholder deliverables:
 
-   - `reviews/{date}/$ARGUMENTS/deliverables/labels.json` (empty file)
    - `reviews/{date}/$ARGUMENTS/deliverables/quality.md` (empty file)
    - `reviews/{date}/$ARGUMENTS/deliverables/severity.md` (empty file)
    - `reviews/{date}/$ARGUMENTS/deliverables/context_scope.md` (empty file)
@@ -85,11 +83,10 @@ Review workspace created at reviews/{date}/$ARGUMENTS/
 
 Please paste the following into the corresponding files:
   1. Task variables     -> inputs.md
-  2. labels.json        -> deliverables/labels.json
-  3. quality.md         -> deliverables/quality.md
-  4. severity.md        -> deliverables/severity.md
-  5. context_scope.md   -> deliverables/context_scope.md
-  6. advanced.md        -> deliverables/advanced.md
+  2. quality.md         -> deliverables/quality.md
+  3. severity.md        -> deliverables/severity.md
+  4. context_scope.md   -> deliverables/context_scope.md
+  5. advanced.md        -> deliverables/advanced.md
 
 Confirm when ready to continue.
 ```
@@ -117,14 +114,72 @@ If coming from `tasks/`, read `progress.md`. If not all 8 steps are "done", warn
 Read all files needed for review:
 - `task_info.md` (inputs, comment body, PR context, comment analysis)
 - `work/pr_diff.txt` (the actual diff)
-- `deliverables/labels.json`
-- `deliverables/context.json`
 - `deliverables/quality.md`
 - `deliverables/severity.md`
 - `deliverables/context_scope.md`
 - `deliverables/advanced.md`
 
 If any deliverable file is missing or empty, report which ones and STOP.
+
+#### 2a. Parse platform format
+
+The `.md` files are raw copy-pastes from the annotation platform. Parse each one to extract the label and reasoning:
+
+**quality.md** format:
+```
+Axis 1: Quality *
+...prompt text...
+
+{Label}              <-- one of: Helpful, Unhelpful, Wrong
+Axis 1: Quality Justification *
+{Reasoning text}
+```
+
+**severity.md** format:
+```
+Axis 2: Severity *
+...prompt text...
+
+{Label}              <-- one of: Nit, Moderate, Critical
+Axis 2: Severity Justification *
+{Reasoning text}
+```
+
+**context_scope.md** format:
+```
+{Label}              <-- one of: Diff, File, Repo, External
+Axis 3: Context
+...prompt text...
+
+#	diff_line	file_path	why
+1
+{diff_line}
+{file_path}
+{why}
+2
+{diff_line}
+{file_path}
+{why}
+...
+```
+
+**advanced.md** format:
+```
+Axis 4: Advanced *
+...prompt text...
+
+{Label}              <-- one of: True, False
+Axis 4: Advanced Justification
+{Reasoning text}
+```
+
+Extract and record:
+- `quality_label`, `quality_reasoning`
+- `severity_label`, `severity_reasoning`
+- `context_scope_label`, `context_entries[]` (each with diff_line, file_path, why)
+- `advanced_label`, `advanced_reasoning`
+
+Normalize labels to lowercase for comparison (e.g., "Helpful" -> "helpful", "Nit" -> "nit", "True" -> "true").
 
 ---
 
@@ -181,14 +236,14 @@ Ask: "What would the reviewer need to read to make this comment with confidence?
 - Check step-03's "Beyond Diff" field against the context_scope label. If "Beyond Diff: No" but context_scope is not `diff`, flag the inconsistency.
 - Distinguish between what the analyst consulted (verification) and what the reviewer needed (observation). Context entries based on analyst verification alone should not inflate the scope.
 
-Also validate the context array entries: are they the right evidence? Is anything missing or extraneous?
+Also validate the context entries: are they the right evidence? Is anything missing or extraneous?
 
 Record your independent label. Compare against the task's label.
 
 | # | Check | Rule |
 |---|---|---|
 | V3 | Your independent context_scope label matches the task's label | If mismatch, explain your reasoning |
-| V4 | Context array entries are correct and complete | No missing evidence, no extraneous entries |
+| V4 | Context entries are correct and complete | No missing evidence, no extraneous entries |
 | V3b | step-03 "Beyond Diff" is consistent with context_scope | "Beyond Diff: No" should align with `diff`; "Yes" should align with `file`/`repo`/`external` |
 
 ---
@@ -215,7 +270,7 @@ Record your independent label. Compare against the task's label.
 
 ### 4. Reasoning validation
 
-For each axis, evaluate the reasoning in the deliverable .md file:
+For each axis, evaluate the reasoning extracted from the deliverable .md file:
 
 | # | Check | Rule |
 |---|---|---|
@@ -231,45 +286,28 @@ For each axis, evaluate the reasoning in the deliverable .md file:
 
 Run these as secondary validation:
 
-#### 5a. labels.json format
+#### 5a. Label values
 
 | # | Check | Rule |
 |---|---|---|
-| F1 | `quality` is one of: `helpful`, `unhelpful`, `wrong` | Exact string match |
-| F2 | `severity` is one of: `nit`, `moderate`, `critical` | Exact string match |
-| F3 | `context_scope` is one of: `diff`, `file`, `repo`, `external` | Exact string match |
-| F4 | `advanced` is a boolean (`true` or `false`), not a string | Type check |
-| F5 | Each context entry has `diff_line` (string or null), `file_path` (string), `why` (string) | Field + type check |
-| F6 | No `diff_line` value is a number | Type check |
-| F7 | If context_scope is not `external`, context has >= 1 entry | Array length |
-| F8 | JSON is valid and uses 2-space indentation | Parse + format check |
+| F1 | quality label is one of: `helpful`, `unhelpful`, `wrong` | Exact match (case-insensitive) |
+| F2 | severity label is one of: `nit`, `moderate`, `critical` | Exact match (case-insensitive) |
+| F3 | context_scope label is one of: `diff`, `file`, `repo`, `external` | Exact match (case-insensitive) |
+| F4 | advanced label is one of: `true`, `false` | Exact match (case-insensitive) |
 
-#### 5a2. context.json format
+#### 5b. Context entries
 
 | # | Check | Rule |
 |---|---|---|
-| F9 | `context.json` exists and is valid JSON | Parse check |
-| F10 | Has a `rows` array | Structure check |
-| F11 | Each row has keys `_dshks`, `ahMYbl`, `dA0ihr` | Field check |
-| F12 | Number of rows matches `labels.json.context` array length | Count match |
-| F13 | Row values match `labels.json.context` entries: `_dshks` = `diff_line` (or `""` if null), `ahMYbl` = `file_path`, `dA0ihr` = `why` | Value-by-value comparison |
-
-#### 5b. Label consistency (md files vs labels.json)
-
-| # | Check | Rule |
-|---|---|---|
-| C1 | quality.md `## Label` matches `labels.json.quality` | Exact match |
-| C2 | severity.md `## Label` matches `labels.json.severity` | Exact match |
-| C3 | context_scope.md `## Label` matches `labels.json.context_scope` | Exact match |
-| C4 | advanced.md `## Label` matches `labels.json.advanced` (as "true"/"false") | Match after type coercion |
-| C5 | context_scope.md Context Evidence table matches `labels.json.context` entries | Row-by-row comparison |
+| F5 | If context_scope is not `external`, at least 1 context entry exists | Array length |
+| F6 | Each context entry has diff_line, file_path, and why | Field presence |
 
 #### 5c. diff_line validation
 
 | # | Check | Rule |
 |---|---|---|
-| D1 | Context entries for files NOT in the PR's changed files have `diff_line: null` | Cross-ref with Changed Files List |
-| D2 | Context entries for files IN the PR's changed files have non-null `diff_line` | Unless exact line is hard to locate |
+| D1 | Context entries for files NOT in the PR's changed files have null/empty diff_line | Cross-ref with Changed Files List |
+| D2 | Context entries for files IN the PR's changed files have non-empty diff_line | Unless exact line is hard to locate |
 
 #### 5d. Wording rules (CLAUDE.md compliance)
 
@@ -295,7 +333,7 @@ CONTENT VALIDATION (axis re-evaluation)
   V1  quality .................... AGREE / DISAGREE
   V2  severity ................... AGREE / DISAGREE
   V3  context_scope .............. AGREE / DISAGREE
-  V4  context array .............. PASS / FAIL
+  V4  context entries ............ PASS / FAIL
   V5  advanced ................... AGREE / DISAGREE
 
   [For each DISAGREE, show:]
@@ -312,9 +350,8 @@ REASONING VALIDATION
   [For each FAIL, show which axis and why]
 
 FORMAT & CONSISTENCY
-  F1-F8   labels.json ............ PASS / {N} issues
-  F9-F13  context.json ........... PASS / {N} issues
-  C1-C5   md vs json ............. PASS / {N} issues
+  F1-F4   label values ........... PASS / {N} issues
+  F5-F6   context entries ........ PASS / {N} issues
   D1-D2   diff_line .............. PASS / {N} issues
   W1-W4   wording ................ PASS / {N} issues
 
@@ -328,27 +365,78 @@ SUMMARY:
 
 ---
 
-### 7. If DISAGREE on any axis
+### 7. Applying fixes
+
+When the user approves a fix (label change, reasoning rewrite, or format correction), write the corrected file into `fixed_deliverables/` inside the task directory, **not** into `deliverables/`.
+
+```bash
+mkdir -p {task_dir}/fixed_deliverables
+```
+
+- Copy the original file from `deliverables/` as a starting point.
+- Apply the approved change.
+- Write the result to `fixed_deliverables/{axis}.md`.
+
+Only the axes that were actually corrected go into `fixed_deliverables/`. Axes that passed review unchanged stay only in `deliverables/`.
+
+This keeps the original deliverables intact for comparison and gives the user a clean set of corrected files to paste back into the platform.
+
+---
+
+### 8. If DISAGREE on any axis
 
 For each disagreement:
 1. Show both labels side by side with reasoning
 2. Reference the specific evidence (code lines, diff sections) that supports your assessment
 3. Ask: "Do you want to update this label? (yes/no/discuss)"
-   - **yes** -> Update labels.json and the corresponding .md file, then re-run consistency checks
+   - **yes** -> Write corrected file to `fixed_deliverables/`, then re-run consistency checks
    - **no** -> Keep the original label, note it as "reviewed, kept as-is"
    - **discuss** -> Present the arguments for and against each label and let the user decide
 
-### 8. If reasoning FAIL on any axis
+### 9. If reasoning FAIL on any axis
 
 For each failure:
 1. Quote the problematic reasoning
 2. Explain what is wrong (inaccurate claim, missing evidence, not self-contained, etc.)
 3. Propose a corrected reasoning
 4. Ask: "Apply this fix? (yes/no)"
+5. If yes, write corrected file to `fixed_deliverables/`
 
-### 9. If format failures exist
+### 10. If format failures exist
 
 For each format FAIL:
 1. Show what was expected vs found
 2. Ask: "Fix these automatically? (yes/no)"
-3. If yes, apply fixes and re-run checks
+3. If yes, write corrected files to `fixed_deliverables/` and re-run checks
+
+---
+
+### 11. Generate feedback_to_cb.md
+
+After all fixes are applied (or if review is CLEAN), generate `{task_dir}/feedback_to_cb.md`.
+
+This file is a brief, friendly note to the person who completed the task, written in English. It must be:
+
+- **Concise:** Only list what was wrong and what the correct answer is. No filler, no preamble.
+- **Evidence-backed:** Each error must cite the source that proves it (quote from the review comment, diff line, file content, tsconfig, etc.). Use `>` blockquotes for citations.
+- **Natural language:** Write as if you're talking to a colleague, not generating a report.
+- **Positive when clean:** If no errors were found, say so in one sentence.
+
+Format:
+
+```markdown
+# Feedback
+
+{If CLEAN: "All labels and reasoning passed review. Nice work."}
+
+{If NEEDS REVISION, one section per error:}
+
+## {Axis}: {what was wrong}
+
+{1-2 sentences explaining the error and what is correct.}
+
+Evidence:
+> {quote from comment, diff, file, or config that proves the point}
+```
+
+Keep the entire file as short as possible. One error = one short section. Do not repeat the full review report here.
