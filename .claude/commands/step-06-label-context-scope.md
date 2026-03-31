@@ -78,7 +78,17 @@ Document in 2-3 sentences:
 - **If context_scope is `file`, you still fill in `diff_line`** for any context entry that points to a specific line, including lines inside the diff. (FAQ #3)
 - **`diff_line` must be `null`** only for files NOT touched by the PR. For PR-touched files, always provide a line number or range unless the exact line is genuinely hard to locate.
 
-### 6. Update task_info.md
+### 6. Verify diff_line accuracy
+
+Before writing any context entry, verify each `diff_line` value against the actual file content fetched at head_sha:
+
+1. For each context entry, confirm the line number points to the actual code referenced, not an adjacent blank line, comment, or closing brace.
+2. If the entry references a range (e.g., "207-215"), confirm the range starts and ends at the correct boundaries of the relevant code block (function definition, statement, etc.).
+3. Cross-check by reading the specific line(s) from the fetched file. If line N is blank but line N-1 or N+1 contains the target code, use the correct line number.
+
+This prevents off-by-one errors from line counting during analysis.
+
+### 7. Update task_info.md
 
 Add to the Labels section:
 
@@ -98,6 +108,6 @@ Add to the Labels section:
 - **Reasoning:** {2-3 sentences explaining the decision}
 ```
 
-### 7. Update progress
+### 8. Update progress
 
 Update `progress.md`: step 06 status = "done", Completed = {timestamp ISO 8601}, Current Step = 07 - Label Advanced.
