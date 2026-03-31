@@ -225,7 +225,7 @@ Axis 3: Context
 Axis 4: Advanced *
 ...prompt text...
 
-{Label}              <-- one of: True, False
+{Label}              <-- one of: Repo-specific conventions, Context outside changed files, Recent language/library updates, Better implementation approach, False
 Axis 4: Advanced Justification
 {Reasoning text}
 ```
@@ -236,7 +236,7 @@ Extract and record:
 - `context_scope_label`, `context_entries[]` (each with diff_line, file_path, why)
 - `advanced_label`, `advanced_reasoning`
 
-Normalize labels to lowercase for comparison (e.g., "Helpful" -> "helpful", "Nit" -> "nit", "True" -> "true").
+Normalize labels to lowercase for comparison (e.g., "Helpful" -> "helpful", "Nit" -> "nit"). For advanced, keep the original casing (e.g., "False", "Repo-specific conventions").
 
 ---
 
@@ -372,13 +372,17 @@ Record your independent label. Compare against the task's label.
 
 Ask: "Could a reviewer make this comment by looking only at the changed lines in the diff?"
 
-Label `true` if the comment meets one or more:
-- Repo-specific conventions
-- Context outside changed files
-- Recent language/library updates
-- Better implementation approach (not just style)
+If the issue is visible directly in the diff, label `False`.
 
-Label `false` if the issue is visible directly in the diff.
+If not, select the specific category that best explains why:
+
+| Category (platform value) | What to look for |
+|---|---|
+| **Repo-specific conventions** | Comment references patterns, conventions, or architectural decisions specific to this repo |
+| **Context outside changed files** | Comment requires knowledge from files not touched by the PR |
+| **Recent language/library updates** | Comment requires awareness of recent or non-obvious language/framework behavior |
+| **Better implementation approach** | Comment suggests a fundamentally better design, algorithm, or API usage (not just style) |
+| **False** | The issue is visible directly in the diff; a reviewer could make this comment from the changed lines alone |
 
 Record your independent label. Compare against the task's label.
 
@@ -413,7 +417,7 @@ Run these as secondary validation:
 | F1 | quality label is one of: `helpful`, `unhelpful`, `wrong` | Exact match (case-insensitive) |
 | F2 | severity label is one of: `nit`, `moderate`, `critical` | Exact match (case-insensitive) |
 | F3 | context_scope label is one of: `diff`, `file`, `repo`, `external` | Exact match (case-insensitive) |
-| F4 | advanced label is one of: `true`, `false` | Exact match (case-insensitive) |
+| F4 | advanced label is one of: `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`, `False` | Exact match (case-sensitive) |
 
 #### 5b. Context entries
 
