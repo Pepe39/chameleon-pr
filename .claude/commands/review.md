@@ -420,10 +420,66 @@ mkdir -p {task_dir}/fixed_deliverables
 - Copy the original file from `deliverables/` as a starting point.
 - Apply the approved change.
 - Write the result to `fixed_deliverables/{axis}.md`.
+- For `context_scope.md`, also generate `fixed_deliverables/context.json` with the corrected context entries in platform table format (see below).
 
 Only the axes that were actually corrected go into `fixed_deliverables/`. Axes that passed review unchanged stay only in `deliverables/`.
 
 This keeps the original deliverables intact for comparison and gives the user a clean set of corrected files to paste back into the platform.
+
+#### Platform-ready format for fixed_deliverables
+
+Fixed deliverables must be in the **platform copy-paste format**, not the internal markdown format. This is critical because the user pastes them directly into the annotation platform.
+
+**context_scope.md** platform format:
+```
+{Label}
+Axis 3: Context
+If context_scope is "external", the context array may be empty ([]) since the knowledge comes from outside the repository (e.g., language docs, framework behavior, RFCs).
+
+#	diff_line	file_path	why
+1
+{diff_line_1}
+{file_path_1}
+{why_1}
+2
+{diff_line_2}
+{file_path_2}
+{why_2}
+```
+
+**context.json** platform format (for the context table):
+```json
+{
+  "rows": [
+    {
+      "_dshks": "{diff_line_or_empty}",
+      "ahMYbl": "{file_path}",
+      "dA0ihr": "{why}"
+    }
+  ]
+}
+```
+
+**quality.md** platform format:
+```
+{Label}
+Axis 1: Quality Justification *
+{Reasoning text}
+```
+
+**severity.md** platform format:
+```
+{Label}
+Axis 2: Severity Justification *
+{Reasoning text}
+```
+
+**advanced.md** platform format:
+```
+{Label}
+Axis 4: Advanced Justification
+{Reasoning text}
+```
 
 ---
 
