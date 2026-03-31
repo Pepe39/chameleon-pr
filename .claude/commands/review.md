@@ -101,7 +101,29 @@ Confirm when ready to continue.
    - Saving diff to `reviews/{date}/$ARGUMENTS/work/pr_diff.txt`
    - Running comment analysis (same as step-03-analyze-comment) to populate Comment Analysis
 
-9. Continue to step 2, using the `reviews/{date}/$ARGUMENTS/` path as the task directory.
+9. Clone the repository at head_sha (same as step-02-analyze-pr section 5):
+
+   ```bash
+   rm -rf "reviews/{date}/$ARGUMENTS/work/repo"
+   git init "reviews/{date}/$ARGUMENTS/work/repo"
+   cd "reviews/{date}/$ARGUMENTS/work/repo"
+   git remote add origin "https://github.com/{nwo}.git"
+   git fetch --depth=1 origin {head_sha}
+   git checkout FETCH_HEAD
+   ```
+
+   **Verify SHA after checkout:**
+   ```bash
+   ACTUAL_SHA=$(git rev-parse HEAD)
+   if [ "$ACTUAL_SHA" != "{head_sha}" ]; then
+     echo "SHA MISMATCH: expected {head_sha}, got $ACTUAL_SHA"
+   fi
+   cd -
+   ```
+
+   Record result in task_info.md (same as step-02: `OK - verified at {head_sha}` / `SHA MISMATCH` / `FAILED`).
+
+10. Continue to step 2, using the `reviews/{date}/$ARGUMENTS/` path as the task directory.
 
 ---
 
@@ -120,6 +142,41 @@ Read all files needed for review:
 - `deliverables/advanced.md`
 
 If any deliverable file is missing or empty, report which ones and STOP.
+
+#### 2b. Ensure repo clone exists
+
+The review needs local repo access for data consistency verification and context_scope re-evaluation. Check if `work/repo/` exists in the task directory.
+
+**If `work/repo/` does NOT exist** (cleaned up after task completion, or task was run before clone was added):
+
+Extract `nwo` and `head_sha` from `task_info.md`, then clone:
+
+```bash
+git init "{task_dir}/work/repo"
+cd "{task_dir}/work/repo"
+git remote add origin "https://github.com/{nwo}.git"
+git fetch --depth=1 origin {head_sha}
+git checkout FETCH_HEAD
+```
+
+**Verify SHA after checkout:**
+```bash
+ACTUAL_SHA=$(git rev-parse HEAD)
+if [ "$ACTUAL_SHA" != "{head_sha}" ]; then
+  echo "SHA MISMATCH: expected {head_sha}, got $ACTUAL_SHA"
+fi
+cd -
+```
+
+Record the result. If SHA MISMATCH, warn the user and proceed with caution (cross-check local files against the diff before trusting them).
+
+**If `work/repo/` already exists**, verify it is at the correct commit:
+```bash
+cd "{task_dir}/work/repo"
+ACTUAL_SHA=$(git rev-parse HEAD)
+cd -
+```
+If it does not match `head_sha`, delete and re-clone.
 
 #### 2a. Parse platform format
 
@@ -185,32 +242,46 @@ Normalize labels to lowercase for comparison (e.g., "Helpful" -> "helpful", "Nit
 
 ### 3. Data consistency verification
 
-Before re-evaluating the axis labels, verify that the task data is internally consistent. Fetch the repo at head_sha if not already done.
+Before re-evaluating the axis labels, verify that the task data is internally consistent using the local repo clone from step 2b.
 
-#### 3a. Verify the PR matches the comment
+#### 3a. Verify repo clone integrity (C0)
+- Confirm `work/repo/` exists and is at the correct `head_sha`:
+  ```bash
+  cd "{task_dir}/work/repo"
+  ACTUAL_SHA=$(git rev-parse HEAD)
+  cd -
+  ```
+- If SHA matches: record `C0: PASS (verified at {head_sha})`
+- If SHA does not match: record `C0: SHA MISMATCH (expected {head_sha}, got {actual_sha})`. All subsequent file reads from the clone must be cross-checked against the diff.
+- If clone does not exist and cannot be created: record `C0: FAILED (no local clone)`. Fall back to `gh api` for all file reads.
+
+#### 3b. Verify the PR matches the comment (C1)
 - Does the PR contain the file referenced in file_path?
 - Does the PR diff include changes at or near diff_line?
 - Is the comment (body) relevant to the changes in this PR?
 - If the comment seems unrelated to the PR, flag it.
 
-#### 3b. Verify the head_sha contains the problem
-- Fetch the target file at head_sha:
+#### 3c. Verify the head_sha contains the problem (C2)
+- Read the target file from the local clone:
   ```bash
-  gh api "repos/{nwo}/contents/{file_path}?ref={head_sha}" --jq '.content' | base64 -d
+  cat "{task_dir}/work/repo/{file_path}"
   ```
+  (Fallback if clone unavailable: `gh api "repos/{nwo}/contents/{file_path}?ref={head_sha}" --jq '.content' | base64 -d`)
 - At head_sha, does the code exhibit the issue described in the comment?
 - If YES: record "Problem confirmed at head_sha."
 - If NO: record this finding. This is critical; it may mean the comment is **wrong** or **unhelpful**. Do not assume automatically; analyze why.
 - If already fixed at head_sha: record "Problem not present at head_sha; may have been fixed before the comment."
+- **If the comment references code outside the target file** (imports, base classes, shared utilities), use the local clone to grep/read those files and verify the claims.
 
-#### 3c. Verify the PR resolves what it claims
+#### 3d. Verify the PR resolves what it claims (C3)
 - Does the PR (title, description, changes) address what it claims?
 - Are there gaps between what the PR says it does and what the diff shows?
 
-#### 3d. Record and gate
+#### 3e. Record and gate
 
 | # | Check | Rule |
 |---|---|---|
+| C0 | Repo clone verified at head_sha | SHA MISMATCH = warn, all file reads cross-checked against diff |
 | C1 | PR contains file_path in its changed files | Critical mismatch if no |
 | C2 | Problem exists at head_sha | If not found, flag for quality label impact |
 | C3 | PR resolves its stated claims | Informational; discrepancies noted |
@@ -270,6 +341,16 @@ Ask: "What would the reviewer need to read to make this comment with confidence?
 - Beyond diff hunks but within PR-touched files? -> `file`
 - Files NOT changed by the PR? -> `repo`
 - Knowledge outside the repository? -> `external`
+
+**Use the local clone to verify scope claims.** If the context entries reference specific lines or files, read them from `work/repo/` to confirm the evidence exists and is relevant:
+```bash
+# Verify a context entry's line reference
+sed -n '{start},{end}p' "{task_dir}/work/repo/{file_path}"
+
+# Check if the reviewer needed files outside the PR
+# (grep for patterns mentioned in the comment across the repo)
+grep -rn "{pattern}" "{task_dir}/work/repo/" --include="*.{ext}"
+```
 
 **Cross-checks:**
 - Check step-03's "Beyond Diff" field against the context_scope label. If "Beyond Diff: No" but context_scope is not `diff`, flag the inconsistency.
@@ -369,6 +450,7 @@ Display in this format:
 == Review: {id} ==
 
 DATA CONSISTENCY
+  C0  Repo clone at head_sha ..... PASS / SHA MISMATCH / FAILED
   C1  PR contains file_path ...... PASS / FAIL
   C2  Problem at head_sha ........ Confirmed / Not found / Already fixed
   C3  PR resolves its claims ..... Yes / Partially / No
@@ -540,3 +622,19 @@ Evidence:
 ```
 
 Keep the entire file as short as possible. One error = one short section. Do not repeat the full review report here.
+
+---
+
+### 13. Cleanup
+
+After the review is complete (report shown, fixes applied or declined, feedback generated), clean up the cloned repository:
+
+```bash
+REPO_DIR="{task_dir}/work/repo"
+if [ -d "$REPO_DIR" ]; then
+  rm -rf "$REPO_DIR"
+  echo "Cleaned up repo clone at $REPO_DIR"
+fi
+```
+
+This cleanup runs regardless of whether the review found issues or was clean.
