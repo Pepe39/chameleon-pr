@@ -77,16 +77,32 @@ cd "tasks/{date}/{id}/work/repo"
 git remote add origin "https://github.com/{nwo}.git"
 git fetch --depth=1 origin {head_sha}
 git checkout FETCH_HEAD
+```
+
+**After checkout, verify the commit matches head_sha:**
+
+```bash
+ACTUAL_SHA=$(git rev-parse HEAD)
+if [ "$ACTUAL_SHA" != "{head_sha}" ]; then
+  echo "SHA MISMATCH: expected {head_sha}, got $ACTUAL_SHA"
+fi
 cd -
 ```
 
-**If the clone fails** (network error, auth issue, repo too large):
-- Log a warning in task_info.md: `- **Repo Clone:** FAILED — {error summary}`
-- Do NOT stop the pipeline. Steps 03+ will fall back to the `gh api contents` method.
-- Continue to the next section.
+**Verification outcomes:**
 
-**If the clone succeeds:**
-- Log in task_info.md: `- **Repo Clone:** OK — work/repo/`
+1. **Clone fails** (network error, auth issue, repo too large):
+   - Log in task_info.md: `- **Repo Clone:** FAILED — {error summary}`
+   - Do NOT stop the pipeline. Steps 03+ will fall back to the `gh api contents` method.
+   - Continue to the next section.
+
+2. **Clone succeeds but SHA does not match head_sha:**
+   - Log in task_info.md: `- **Repo Clone:** SHA MISMATCH — expected {head_sha}, got {actual_sha}`
+   - **Flag to the user:** "The cloned repo is NOT at the expected commit. File browsing results may not match the PR state when the comment was made. Proceed with caution or verify manually."
+   - Do NOT stop the pipeline, but this warning must be carried forward into the analysis. Steps 03+ should cross-check any file content against the diff to detect inconsistencies.
+
+3. **Clone succeeds and SHA matches:**
+   - Log in task_info.md: `- **Repo Clone:** OK — work/repo/ (verified at {head_sha})`
 
 ### 6. Update task_info.md
 
@@ -99,7 +115,7 @@ Add analysis section:
 - **PR Title:** {title}
 - **PR Description:** {description summary — 1-2 sentences}
 - **Files Changed:** {N} files, +{additions} -{deletions}
-- **Repo Clone:** OK — work/repo/ (or FAILED — {error})
+- **Repo Clone:** OK — work/repo/ (verified at {head_sha}) | SHA MISMATCH | FAILED
 - **Changed Files List:**
   - {file1}
   - {file2}

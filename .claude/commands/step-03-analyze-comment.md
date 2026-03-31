@@ -56,7 +56,9 @@ Determine if the comment requires context beyond the diff. Indicators:
 If additional context is needed:
 
 **Primary method (local clone):**
-If `work/repo/` exists in the task directory (cloned in step 02), browse files directly:
+If `work/repo/` exists in the task directory (cloned in step 02), browse files directly.
+
+**Important:** Check the `Repo Clone` field in `task_info.md` first. If it says `SHA MISMATCH`, cross-check any file content you read against the diff in `work/pr_diff.txt` to detect inconsistencies. If the local file content contradicts the diff, fall back to the `gh api contents` method for that file.
 
 ```bash
 # Read the target file in full
