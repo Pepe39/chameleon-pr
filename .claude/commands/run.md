@@ -147,4 +147,18 @@ Read `.claude/commands/{step-command}.md` and follow ALL instructions from that 
 2. Show: "Step {N} completed. Next: {N+1} - {name}"
 3. Ask: "Continue with the next step? (yes/no)"
 4. If yes -> go back to step 4 with the next step
-5. If no -> show: "To resume: `/run {id}`"
+5. If no -> proceed to section 7 (Cleanup), then show: "To resume: `/run {id}`"
+
+### 7. Cleanup
+
+After the pipeline completes (all steps done) or when the user declines to continue, clean up the cloned repository:
+
+```bash
+REPO_DIR="tasks/{date}/{id}/work/repo"
+if [ -d "$REPO_DIR" ]; then
+  rm -rf "$REPO_DIR"
+  echo "Cleaned up repo clone at $REPO_DIR"
+fi
+```
+
+This cleanup runs regardless of whether all steps completed or the user stopped early.

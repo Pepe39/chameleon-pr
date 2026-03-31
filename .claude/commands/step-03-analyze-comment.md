@@ -55,12 +55,27 @@ Determine if the comment requires context beyond the diff. Indicators:
 
 If additional context is needed:
 
+**Primary method (local clone):**
+If `work/repo/` exists in the task directory (cloned in step 02), browse files directly:
+
 ```bash
-# Clone or fetch the repo at the correct commit
-gh api repos/{nwo}/contents/{file_path}?ref={head_sha} --jq '.content' | base64 -d
+# Read the target file in full
+cat "tasks/{date}/{id}/work/repo/{file_path}"
+
+# Search for function definitions, usages, patterns
+grep -rn "function_name" "tasks/{date}/{id}/work/repo/src/"
+
+# Explore directory structure
+ls "tasks/{date}/{id}/work/repo/{directory}/"
+
+# Find related files (imports, base classes, configs)
+grep -rn "import.*ModuleName" "tasks/{date}/{id}/work/repo/"
 ```
 
-Or use browser tools to navigate `repo_url` and explore relevant files.
+**Fallback (if clone failed or work/repo/ does not exist):**
+```bash
+gh api repos/{nwo}/contents/{file_path}?ref={head_sha} --jq '.content' | base64 -d
+```
 
 Document what files you consulted and why.
 

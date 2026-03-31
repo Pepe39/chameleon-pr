@@ -63,7 +63,32 @@ From the diff, extract the section relevant to `file_path` and `diff_line`:
 - The diff hunk containing the comment's target line
 - Surrounding context (the full file diff, not just the hunk)
 
-### 5. Update task_info.md
+### 5. Clone repository at head_sha
+
+Clone the repository to enable local file browsing in subsequent steps (per the labeling instructions, Step 3: Browse the repository).
+
+```bash
+# Ensure clean state (handles interrupted reruns)
+rm -rf "tasks/{date}/{id}/work/repo"
+
+# Shallow clone of the exact commit
+git init "tasks/{date}/{id}/work/repo"
+cd "tasks/{date}/{id}/work/repo"
+git remote add origin "https://github.com/{nwo}.git"
+git fetch --depth=1 origin {head_sha}
+git checkout FETCH_HEAD
+cd -
+```
+
+**If the clone fails** (network error, auth issue, repo too large):
+- Log a warning in task_info.md: `- **Repo Clone:** FAILED — {error summary}`
+- Do NOT stop the pipeline. Steps 03+ will fall back to the `gh api contents` method.
+- Continue to the next section.
+
+**If the clone succeeds:**
+- Log in task_info.md: `- **Repo Clone:** OK — work/repo/`
+
+### 6. Update task_info.md
 
 Add analysis section:
 
@@ -74,6 +99,7 @@ Add analysis section:
 - **PR Title:** {title}
 - **PR Description:** {description summary — 1-2 sentences}
 - **Files Changed:** {N} files, +{additions} -{deletions}
+- **Repo Clone:** OK — work/repo/ (or FAILED — {error})
 - **Changed Files List:**
   - {file1}
   - {file2}
@@ -85,6 +111,8 @@ Add analysis section:
 - **Language:** {coding_language}
 ```
 
-### 6. Update progress
+### 7. Update progress
 
 Update `progress.md`: step 02 status = "done", Completed = {timestamp ISO 8601}, Current Step = 03 - Analyze Comment.
+
+**Note:** The repo clone at `work/repo/` is cleaned up by `run.md` after the task completes or the user stops.
