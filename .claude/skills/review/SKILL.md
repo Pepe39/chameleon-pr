@@ -1,3 +1,8 @@
+---
+description: Validate deliverables for a completed task. Re-evaluates labels, reasoning, and format.
+user_invocable: true
+---
+
 # /review - Validate deliverables for a task
 
 Reviews a task's deliverables: re-evaluates each axis label against the evidence, validates reasoning quality, and checks format consistency.

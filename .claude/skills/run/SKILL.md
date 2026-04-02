@@ -1,3 +1,8 @@
+---
+description: Single entry point for code review labeling tasks. Creates new tasks or resumes existing ones.
+user_invocable: true
+---
+
 # /run - Single entry point for code review labeling tasks
 
 Creates new tasks or resumes existing ones from where they left off.
@@ -139,7 +144,7 @@ Dispatch logic:
 
 ### 5. Execute step
 
-Read `.claude/commands/{step-command}.md` and follow ALL instructions from that file with `id={id}`.
+Read `.claude/skills/{step-command}.md` and follow ALL instructions from that file with `id={id}`.
 
 ### 6. After the step
 
