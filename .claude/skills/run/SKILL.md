@@ -8,7 +8,8 @@ user_invocable: true
 Creates new tasks or resumes existing ones from where they left off.
 
 ## Arguments
-- `$ARGUMENTS` (positional): Task ID. E.g.: `/run 2937204136`
+- `$ARGUMENTS` (positional): Task ID, optionally followed by `auto`. E.g.: `/run 2937204136` or `/run 2937204136 auto`
+- **`auto` mode (bypass):** When the second token is `auto`, the skill runs the full pipeline non-interactively: do NOT ask the user anything, do NOT wait for confirmations, do NOT pause between steps. This mode is used when the API / extension invokes the skill via `claude -p`. Manual console runs (no `auto`) keep the interactive prompts.
 
 ## Ground Rule
 
@@ -18,12 +19,38 @@ Creates new tasks or resumes existing ones from where they left off.
 
 ### 1. Locate task
 
-Check if task exists: `find tasks/ -maxdepth 2 -type d -name "$ARGUMENTS" 2>/dev/null`
-- If find returns a path -> task EXISTS (go to 2b or 2c)
+Check if task exists: `find tasks/ -maxdepth 2 -type d -name "{id}" 2>/dev/null`
+(use only the task id, not the full `$ARGUMENTS`, since it may include `auto`).
+- If find returns a path -> task EXISTS (go to 1a)
 - If find returns nothing -> task DOES NOT exist (go to 2a)
 
 **IMPORTANT:** Do NOT use glob with `ls tasks/*/ID/` as quotes around the path
 prevent `*` expansion and cause false negatives. Always use `find`.
+
+### 1a. Idempotency check (BEFORE doing anything else)
+
+If the task dir was found, IMMEDIATELY check whether the four deliverable files
+already exist on disk and are non-empty:
+
+```bash
+DIR=<path returned by find>
+ALL=1
+for f in quality.md severity.md context_scope.md advanced.md; do
+  if [ ! -s "$DIR/deliverables/$f" ]; then ALL=0; break; fi
+done
+[ $ALL -eq 1 ] && echo ALREADY_DONE
+```
+
+- If `ALREADY_DONE` is printed -> the task is already labeled. Do **NOT** touch
+  any file. Do NOT bootstrap `progress.md`. Do NOT run any step. Print:
+  `Task {id} already labeled (deliverables present on disk). Skipping.` and STOP
+  immediately. The API reads the deliverables from disk; nothing else is needed.
+- If any file is missing -> continue to 2b or 2c as normal.
+
+**Why:** the API can re-invoke `/run {id} auto` for tasks that were produced in
+earlier sessions. Rerunning the pipeline would waste work and may produce
+different labels for an already-validated task. Idempotency is mandatory in
+auto mode AND in interactive mode.
 
 ### 2a. If task does NOT exist -> Create task
 
@@ -97,8 +124,8 @@ Created: {timestamp ISO 8601}
 ```
 
 6. Confirm: "Task {id} created at tasks/{date}/{id}/"
-7. Tell the user: "Paste your task variables into `inputs.md` and confirm when ready."
-8. Wait for user confirmation, then continue to step 3.
+7. **Interactive mode only:** Tell the user "Paste your task variables into `inputs.md` and confirm when ready." then wait for confirmation.
+8. **Auto mode:** assume `inputs.md` is already populated by the API; continue immediately to step 3 without waiting.
 
 ### 2b. If task exists but has NO progress.md -> Bootstrap
 
@@ -150,9 +177,8 @@ Read `.claude/skills/{step-command}.md` and follow ALL instructions from that fi
 
 1. Update progress.md (each step already does this when finishing)
 2. Show: "Step {N} completed. Next: {N+1} - {name}"
-3. Ask: "Continue with the next step? (yes/no)"
-4. If yes -> go back to step 4 with the next step
-5. If no -> proceed to section 7 (Cleanup), then show: "To resume: `/run {id}`"
+3. **Interactive mode:** Ask "Continue with the next step? (yes/no)". If yes -> back to step 4. If no -> section 7 (Cleanup), then show "To resume: `/run {id}`".
+4. **Auto mode:** Do NOT ask. Loop straight back to step 4 with the next pending step until all 8 steps are `done`, then proceed to section 7 (Cleanup) and stop.
 
 ### 7. Cleanup
 

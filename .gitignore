@@ -13,11 +13,15 @@ Desktop.ini
 *.swp
 *.swo
 *~
-.project
 .settings/
 
 # Logs
 *.log
+.project/logs/
+
+# Python
+__pycache__/
+*.pyc
 
 # Environment
 .env
