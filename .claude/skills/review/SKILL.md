@@ -10,9 +10,16 @@ Reviews a task's deliverables: re-evaluates each axis label against the evidence
 Deliverables are the 4 axis `.md` files copied from the annotation platform.
 
 ## Arguments
-- `$ARGUMENTS` (positional): Task ID, optionally followed by `auto`. E.g.: `/review 2937204136` or `/review 2937204136 auto`
-- **`auto` mode (bypass):** When the second token is `auto`, the skill runs the full review non-interactively. Do NOT ask the user any questions, do NOT wait for confirmations. Apply every recommended fix directly into `fixed_deliverables/`, write `feedback_to_cb.md`, then stop. The API/extension invokes the skill in this mode. Manual console runs (no `auto`) keep the interactive prompts.
-- **Idempotency:** If `feedback_to_cb.md` already exists in the task directory and is non-empty, print `Review already completed for {id}. Skipping.` and STOP immediately. Do not re-run any check. Applies in both interactive and auto mode.
+- `$ARGUMENTS` (positional): Task ID, optionally followed by a mode token: `auto` or `reevaluate`. E.g.: `/review 2937204136`, `/review 2937204136 auto`, `/review 2937204136 reevaluate`.
+- **`auto` mode (bypass):** When the second token is `auto`, the skill runs the full review non-interactively. Do NOT ask the user any questions, do NOT wait for confirmations. Apply every recommended fix directly into `fixed_deliverables/`, write `feedback_to_cb.md` and `review_meta.json`, then stop. The API/extension invokes the skill in this mode. Manual console runs (no token) keep the interactive prompts.
+- **`reevaluate` mode (sanity-check existing fixes):** When the second token is `reevaluate`, the skill does NOT run the full pipeline. Instead it loads the existing `fixed_deliverables/`, `feedback_to_cb.md`, and `review_meta.json`, and verifies that each proposed fix is internally consistent and supported by the original deliverables, the PR diff at `head_sha`, and the comment under review. The skill behaves non-interactively (no prompts). It must:
+  1. Bypass the idempotency check at the top of the skill (do not stop just because `feedback_to_cb.md` exists; that file is the input to reevaluate).
+  2. Skip phases 01-06 of the regular pipeline; the only work is validating the proposed fixes.
+  3. For each proposed fix, re-derive the answer from scratch using the original deliverables + diff + comment, then compare to the proposed fix.
+  4. If every proposed fix is correct: leave `fixed_deliverables/`, `feedback_to_cb.md` and `review_meta.json` UNCHANGED, and append to `feedback_to_cb.md` / `feedback_text` a single short sentence at the very end like "(Reevaluated: the proposed adjustments held up.)" so the user can tell a reevaluation actually happened.
+  5. If any proposed fix is wrong: rewrite that specific file in `fixed_deliverables/` with the corrected version, update `feedback_to_cb.md` and `review_meta.json` so the prose reflects the corrected adjustments (still in past tense, still plain prose), and append "(Reevaluated: corrected N proposed fix(es).)" at the end of the prose.
+  6. Always update `review_progress.md` with a new row or set of rows scoped to the reevaluation, so the user can see it ran.
+- **Idempotency:** If `feedback_to_cb.md` already exists in the task directory and is non-empty, print `Review already completed for {id}. Skipping.` and STOP immediately. Do not re-run any check. **Exception:** when invoked in `reevaluate` mode, ignore this idempotency rule (the existing feedback is the input to reevaluate, not a reason to skip).
 - **Friendly tone:** `feedback_to_cb.md` MUST be written in natural, friendly English, as if you were a colleague leaving a kind note. Avoid jargon dumps and report-style headings.
 - **Mandatory `review_meta.json`:** Every review MUST also write `review_meta.json` in the review directory with this exact shape:
   ```json

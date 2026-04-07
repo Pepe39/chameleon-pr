@@ -67,10 +67,10 @@ def write_inputs_md(task_dir, data):
     (task_dir / "inputs.md").write_text("\n".join(lines), encoding="utf-8")
 
 
-def run_claude(task_id, label="RUN", command="run"):
+def run_claude(task_id, label="RUN", command="run", mode="auto"):
     clean_env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
     cmd = [
-        "claude", "-p", f"/{command} {task_id} auto",
+        "claude", "-p", f"/{command} {task_id} {mode}",
         "--model", "claude-sonnet-4-6",
         "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep",
     ]
@@ -409,25 +409,25 @@ def read_review_outputs(review_dir):
 def review():
     data = request.get_json(silent=True) or {}
     task_id = data.get("task_id")
-    force = bool(data.get("force"))
+    reevaluate = bool(data.get("reevaluate"))
     if not task_id:
         return jsonify({"error": "task_id required"}), 400
 
     existing = find_review_dir(task_id)
 
-    if force and existing:
-        # Wipe previous review outputs so the skill re-runs from scratch.
-        for name in ("feedback_to_cb.md", "review_meta.json", "review_progress.md"):
-            p = existing / name
-            if p.is_file():
-                p.unlink()
-        fd = existing / "fixed_deliverables"
-        if fd.is_dir():
-            shutil.rmtree(fd)
+    if reevaluate:
+        if not existing or not read_review_outputs(existing):
+            return jsonify({"error": "no existing review to reevaluate"}), 400
+        # Re-run the skill in reevaluate mode: it will sanity-check the
+        # current fixed_deliverables/feedback and only rewrite them if it
+        # finds inconsistencies. Original deliverables and the diff stay.
         review_jobs.pop(task_id, None)
+        review_jobs[task_id] = {"status": "running", "error": None, "result": None}
+        threading.Thread(target=_review_worker, args=(task_id, existing, "reevaluate"), daemon=True).start()
+        return jsonify({"status": "running"})
 
-    # Idempotency (skipped when force=True because we just wiped outputs)
-    if not force and existing:
+    # Idempotency: feedback already exists?
+    if existing:
         out = read_review_outputs(existing)
         if out:
             return jsonify({"status": "done", **out})
@@ -443,9 +443,9 @@ def review():
     return jsonify({"status": "running"})
 
 
-def _review_worker(task_id, review_dir):
+def _review_worker(task_id, review_dir, mode="auto"):
     try:
-        ok, result = run_claude(task_id, label="REVIEW", command="review")
+        ok, result = run_claude(task_id, label="REVIEW", command="review", mode=mode)
         if not ok:
             review_jobs[task_id] = {"status": "error", "error": result.get("error"), "result": None}
             return

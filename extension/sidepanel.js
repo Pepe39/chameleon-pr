@@ -498,12 +498,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!enriched || enriched.error) throw new Error(enriched?.error || 'Scrape failed');
       scrapeData = enriched;
 
-      progressText.textContent = 'Re-running /review (force)...';
+      progressText.textContent = 'Sanity-checking proposed fixes...';
       const api = await getApi();
       const r = await fetch(`${api}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...enriched, force: true }),
+        body: JSON.stringify({ ...enriched, reevaluate: true }),
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
