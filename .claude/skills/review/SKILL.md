@@ -278,7 +278,7 @@ Extract and record:
 - `context_scope_label`, `context_entries[]` (each with diff_line, file_path, why)
 - `advanced_label`, `advanced_reasoning`
 
-Normalize labels to lowercase for comparison (e.g., "Helpful" -> "helpful", "Nit" -> "nit"). For advanced, keep the original casing (e.g., "False", "Repo-specific conventions").
+Normalize **all** labels to lowercase for comparison, including advanced (e.g., "False" and "false" are the same; "Context outside changed files" and "context outside changed files" are the same). The annotation platform's combo box stores them in lowercase, so lowercase is the canonical form. Never propose a fix that only changes letter casing.
 
 ---
 
@@ -459,7 +459,7 @@ Run these as secondary validation:
 | F1 | quality label is one of: `helpful`, `unhelpful`, `wrong` | Exact match (case-insensitive) |
 | F2 | severity label is one of: `nit`, `moderate`, `critical` | Exact match (case-insensitive) |
 | F3 | context_scope label is one of: `diff`, `file`, `repo`, `external` | Exact match (case-insensitive) |
-| F4 | advanced label is one of: `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`, `False` | Exact match (case-sensitive) |
+| F4 | advanced label is one of: `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`, `False` | **Case-insensitive** match. The platform's combo box uses lowercase (`false`, `context outside changed files`, etc.) and that is the canonical, valid form. NEVER flag a label as wrong just because of casing. Casing is not a defect. |
 
 #### 5b. Context entries
 
