@@ -409,12 +409,25 @@ def read_review_outputs(review_dir):
 def review():
     data = request.get_json(silent=True) or {}
     task_id = data.get("task_id")
+    force = bool(data.get("force"))
     if not task_id:
         return jsonify({"error": "task_id required"}), 400
 
-    # Idempotency: feedback already exists?
     existing = find_review_dir(task_id)
-    if existing:
+
+    if force and existing:
+        # Wipe previous review outputs so the skill re-runs from scratch.
+        for name in ("feedback_to_cb.md", "review_meta.json", "review_progress.md"):
+            p = existing / name
+            if p.is_file():
+                p.unlink()
+        fd = existing / "fixed_deliverables"
+        if fd.is_dir():
+            shutil.rmtree(fd)
+        review_jobs.pop(task_id, None)
+
+    # Idempotency (skipped when force=True because we just wiped outputs)
+    if not force and existing:
         out = read_review_outputs(existing)
         if out:
             return jsonify({"status": "done", **out})

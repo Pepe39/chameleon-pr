@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const reviewBtn = $('reviewBtn');
   const fillBtn = $('fillBtn');
   const applyFixesBtn = $('applyFixesBtn');
+  const reevaluateBtn = $('reevaluateBtn');
   const clearBtn = $('clearBtn');
   const reviewCard = $('reviewCard');
   const reviewChanges = $('reviewChanges');
@@ -73,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (type === 'success') setTimeout(() => statusEl.classList.add('hidden'), 4000);
   }
   function hideAll() {
-    [taskInfo, scrapePreview, runBtn, reviewBtn, fillBtn, applyFixesBtn, clearBtn, statusBtn,
+    [taskInfo, scrapePreview, runBtn, reviewBtn, fillBtn, applyFixesBtn, reevaluateBtn, clearBtn, statusBtn,
      progress, statusEl, resultsCard, reviewCard, statusCard, wrongPage].forEach(e => e.classList.add('hidden'));
   }
 
@@ -376,6 +377,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     reviewCard.classList.remove('hidden');
     // Always show apply button (it also fills score + feedback even if no axis fixes)
     applyFixesBtn.classList.remove('hidden');
+    // Reevaluate button only makes sense in review stage
+    reevaluateBtn.classList.remove('hidden');
   }
 
   reviewBtn.addEventListener('click', async () => {
@@ -479,6 +482,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     applyFixesBtn.textContent = 'Apply Review Fixes';
     applyFixesBtn.disabled = false;
+  });
+
+  reevaluateBtn.addEventListener('click', async () => {
+    if (!scrapeData) return;
+    reevaluateBtn.disabled = true;
+    reevaluateBtn.textContent = 'Reevaluating...';
+    reviewCard.classList.add('hidden');
+    applyFixesBtn.classList.add('hidden');
+    progress.classList.remove('hidden');
+    progressText.textContent = 'Re-scraping current values...';
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const enriched = await chrome.runtime.sendMessage({ action: 'scrapeReview', tabId: tab.id });
+      if (!enriched || enriched.error) throw new Error(enriched?.error || 'Scrape failed');
+      scrapeData = enriched;
+
+      progressText.textContent = 'Re-running /review (force)...';
+      const api = await getApi();
+      const r = await fetch(`${api}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...enriched, force: true }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error || `HTTP ${r.status}`);
+      }
+      const s = await r.json();
+      if (s.status === 'done') {
+        progress.classList.add('hidden');
+        renderReview(s);
+      } else {
+        progressText.textContent = 'Claude is re-reviewing...';
+        pollReview(api, scrapeData.task_id);
+      }
+    } catch (err) {
+      progress.classList.add('hidden');
+      showStatus(err.message, 'error');
+    }
+    reevaluateBtn.textContent = 'Reevaluate Review';
+    reevaluateBtn.disabled = false;
   });
 
   // ============ Status panel ============

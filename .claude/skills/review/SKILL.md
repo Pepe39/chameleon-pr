@@ -49,6 +49,31 @@ Every review run (interactive or auto) MUST maintain a `review_progress.md` file
 
 Update the row's `Status`, `Started`, `Completed` columns and the top `Current Phase` line as you progress. Mark `done` only when the phase actually finished. Keep the file even if the review ends in error so the user can see how far it got.
 
+### How to update review_progress.md (mandatory, not optional)
+
+This is a hard requirement. The file MUST be updated using the Edit tool at TWO points for every single phase:
+
+1. **Before** starting phase N: Edit `review_progress.md` to set that phase's `Status` column to `in-progress`, fill its `Started` cell with the current ISO 8601 timestamp, and update the top `**Current Phase:**` line to phase N's name. Also bump `**Last Updated:**`.
+2. **After** finishing phase N (right before moving on to phase N+1): Edit `review_progress.md` to flip the phase's `Status` to `done` and fill its `Completed` cell with the current timestamp. Also bump `**Last Updated:**`.
+
+Do NOT batch multiple phase updates at the end of the review. Each phase MUST be flipped to in-progress when it starts and to done when it finishes, before any other tool call for the next phase. If the auto worker dies mid-phase, the progress file must show exactly which phase was in-flight.
+
+Phase-to-section mapping (so you know which phase you are in while reading the instructions below):
+
+| Phase | Section in this file |
+|---|---|
+| 01 Locate task / load deliverables | Sections 1, 1a, 2 (excluding 2b) |
+| 02 Repo clone (head_sha)            | Section 2b |
+| 03 Data consistency (C0-C3)         | Section 3 |
+| 04 Content validation (V1-V5)       | Section 4 |
+| 05 Reasoning validation (R1-R5)     | Section 5 |
+| 06 Format & wording checks          | Sections 6, 7 |
+| 07 Apply fixes (fixed_deliverables) | Sections 8, 9, 10, 11 |
+| 08 Feedback to tasker (+ review_meta.json) | Section 12 |
+| 09 Cleanup                          | Section 13 |
+
+If a phase is skipped because there is nothing to do (e.g., no fixes to apply), still flip it to `done` with the same Started/Completed timestamp and a note in the Current Phase line.
+
 ## Instructions
 
 ### 1. Locate task
@@ -639,35 +664,47 @@ For each format FAIL:
 
 ---
 
-### 12. Generate feedback_to_cb.md
+### 12. Generate feedback_to_cb.md and review_meta.json
 
-After all fixes are applied (or if review is CLEAN), generate `{task_dir}/feedback_to_cb.md`.
+After all fixes are applied (or if review is CLEAN), generate **two** files in the task directory:
+- `feedback_to_cb.md`
+- `review_meta.json`
 
-This file is a brief, friendly note to the person who completed the task, written in English. It must be:
+Both must contain the SAME prose in the `feedback_text` / file body. Treat them as a single artifact in two formats.
 
-- **Concise:** Only list what was wrong and what the correct answer is. No filler, no preamble.
-- **Evidence-backed:** Each error must cite the source that proves it (quote from the review comment, diff line, file content, tsconfig, etc.). Use `>` blockquotes for citations.
-- **Natural language:** Write as if you're talking to a colleague, not generating a report.
-- **Positive when clean:** If no errors were found, say so in one sentence.
+#### Tone and content rules (mandatory)
 
-Format:
+- **Past tense, "what was adjusted":** describe what you fixed, not what "needs adjustment". E.g. write "I changed the Quality label to `helpful` because ...", NOT "the Quality label needs to be changed to `helpful`". The attempter receives this AFTER the fix has been applied; the fix is already done.
+- **Plain prose paragraphs only.** No `#`/`##` headings, no bullet lists, no `>` blockquotes, no tables. Just natural sentences grouped into one or two short paragraphs. Markdown is only allowed for inline code spans with backticks (e.g. `helpful`, `nth(1)`) when naming a label, function, or file.
+- **Concise and concrete:** one or two short paragraphs total. Name the axis, name what changed, name the concrete reason in one sentence each. No preamble ("Hi, hope you're doing well..."), no recap of the rubric, no closing pleasantries beyond a short friendly line.
+- **Friendly, colleague-to-colleague:** warm but brief. A short positive opener or closer is fine ("Nice work overall.", "Solid pass on the rest."). Never condescending, never mechanical.
+- **Clean case:** if nothing was adjusted, write a single sentence such as "All labels and reasoning looked good, nothing to adjust here. Nice work."
+- **No copy of the diff or long code blocks.** Reference functions or files by name, not by quoting them.
 
-```markdown
-# Feedback
+#### Format
 
-{If CLEAN: "All labels and reasoning passed review. Nice work."}
+`feedback_to_cb.md` is just the plain prose, no `# Feedback` heading, no separator lines. Example for a one-fix review:
 
-{If NEEDS REVISION, one section per error:}
-
-## {Axis}: {what was wrong}
-
-{1-2 sentences explaining the error and what is correct.}
-
-Evidence:
-> {quote from comment, diff, file, or config that proves the point}
+```
+I bumped the Quality label from `wrong` to `helpful`. The reasoning treated `_remove_all_group_entries` as if it lived in old code, but `ha_groups_controller.py` is a brand-new file in this PR (495 additions, 0 deletions), so the function the comment flags really is the incoming behavior. I also tightened the Advanced reasoning to say the issue is in the added lines, not the removed ones. Everything else looked good. Nice work overall.
 ```
 
-Keep the entire file as short as possible. One error = one short section. Do not repeat the full review report here.
+Example for a clean review:
+
+```
+All labels and reasoning looked good, nothing to adjust here. Nice work.
+```
+
+`review_meta.json` mirrors the same prose:
+
+```json
+{
+  "quality_score": <int 1-5>,
+  "feedback_text": "<the exact same paragraph(s) as feedback_to_cb.md>"
+}
+```
+
+Keep both files in sync. The extension reads `feedback_text` and pastes it directly into the platform's Feedback textarea, so any markdown noise becomes visible to the attempter and is unacceptable.
 
 ---
 
