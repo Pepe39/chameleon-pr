@@ -139,23 +139,50 @@ def parse_context_scope(text):
 
     entries = []
     if table_start >= 0:
-        # Markdown table: header line, then `|---|---|---|` separator, then rows.
         i = table_start + 1
-        # Skip separator line(s) like |---|---|---|
+        # Skip markdown separator lines like |---|---|---|
         while i < len(lines) and re.match(r"^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$", lines[i]):
             i += 1
-        while i < len(lines):
-            row = lines[i].strip()
-            if not row or not row.startswith("|"):
-                break
-            cells = [c.strip() for c in row.strip("|").split("|")]
-            if len(cells) >= 3:
-                entries.append({
-                    "diff_line": cells[0],
-                    "file_path": cells[1],
-                    "why": "|".join(cells[2:]).strip(),
-                })
-            i += 1
+
+        # Detect format: pipe-table vs platform copy-paste (tabs / one cell per line)
+        first_row = next((lines[j].strip() for j in range(i, len(lines)) if lines[j].strip()), "")
+        if first_row.startswith("|"):
+            # Pipe-table format: | diff_line | file_path | why |
+            while i < len(lines):
+                row = lines[i].strip()
+                if not row or not row.startswith("|"):
+                    break
+                cells = [c.strip() for c in row.strip("|").split("|")]
+                if len(cells) >= 3:
+                    entries.append({
+                        "diff_line": cells[0],
+                        "file_path": cells[1],
+                        "why": "|".join(cells[2:]).strip(),
+                    })
+                i += 1
+        else:
+            # Platform copy-paste format: each row is 4 consecutive non-empty
+            # lines (row#, diff_line, file_path, why). Group them.
+            buf = []
+            while i < len(lines):
+                row = lines[i].strip()
+                if not row:
+                    i += 1
+                    continue
+                # New entry starts with a numeric row index
+                if re.match(r"^\d+$", row) and len(buf) == 0:
+                    buf.append(row)
+                elif buf:
+                    buf.append(row)
+                if len(buf) == 4:
+                    _, diff_line, file_path, why = buf
+                    entries.append({
+                        "diff_line": diff_line,
+                        "file_path": file_path,
+                        "why": why,
+                    })
+                    buf = []
+                i += 1
     return {"label": label, "entries": entries}
 
 
@@ -238,17 +265,19 @@ def _worker(task_id, task_dir):
 
 @app.route("/run/status/<task_id>", methods=["GET"])
 def run_status(task_id):
+    # Filesystem wins over the in-memory cache.
     task_dir = find_task_dir(task_id)
+    if task_dir:
+        deliv = read_deliverables(task_dir)
+        if deliv:
+            jobs.pop(task_id, None)
+            return jsonify({"status": "done", "deliverables": deliv})
     if task_id in jobs:
         job = jobs[task_id]
         if job["status"] == "running":
             return jsonify({"status": "running"})
         if job["status"] == "error":
             return jsonify({"status": "error", "error": job["error"]})
-    if task_dir:
-        deliv = read_deliverables(task_dir)
-        if deliv:
-            return jsonify({"status": "done", "deliverables": deliv})
     return jsonify({"status": "not_found"})
 
 
@@ -351,11 +380,28 @@ def read_review_outputs(review_dir):
                 feedback_text = meta["feedback_text"]
         except Exception:
             pass
+    # Strip markdown so the textarea gets plain prose:
+    #   - drop heading lines (#, ##, ###)
+    #   - unwrap blockquote prefixes ("> " -> "")
+    #   - collapse 3+ consecutive blank lines
+    cleaned = []
+    for line in feedback_text.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            continue
+        if stripped.startswith("> "):
+            line = stripped[2:]
+        elif stripped == ">":
+            line = ""
+        cleaned.append(line)
+    feedback_text = "\n".join(cleaned).strip()
+    feedback_text = re.sub(r"\n{3,}", "\n\n", feedback_text)
+    # Single source of truth: `feedback` is the cleaned plain-text version
+    # that the extension both displays and pastes into the platform textarea.
     return {
-        "feedback": feedback_md,
+        "feedback": feedback_text,
         "fixed": read_fixed_deliverables(review_dir),
         "quality_score": quality_score,
-        "feedback_text": feedback_text,
     }
 
 
@@ -407,17 +453,20 @@ def _review_worker(task_id, review_dir):
 
 @app.route("/review/status/<task_id>", methods=["GET"])
 def review_status(task_id):
+    # Filesystem wins over the in-memory cache: if the artifacts are on disk
+    # the review is done, regardless of any stale "error" job state.
+    review_dir = find_review_dir(task_id)
+    if review_dir:
+        out = read_review_outputs(review_dir)
+        if out:
+            review_jobs.pop(task_id, None)
+            return jsonify({"status": "done", **out})
     if task_id in review_jobs:
         job = review_jobs[task_id]
         if job["status"] == "running":
             return jsonify({"status": "running"})
         if job["status"] == "error":
             return jsonify({"status": "error", "error": job["error"]})
-    review_dir = find_review_dir(task_id)
-    if review_dir:
-        out = read_review_outputs(review_dir)
-        if out:
-            return jsonify({"status": "done", **out})
     return jsonify({"status": "not_found"})
 
 

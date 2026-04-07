@@ -331,9 +331,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   function escapeMd(s) { return escapeHtml(s || ''); }
 
   function renderReview(payload) {
-    const { feedback = '', fixed = {}, quality_score = null, feedback_text = '' } = payload;
+    const { feedback = '', fixed = {}, quality_score = null } = payload;
     reviewFixes = fixed && Object.keys(fixed).length ? fixed : null;
-    reviewMeta = { quality_score, feedback_text: feedback_text || feedback };
+    reviewMeta = { quality_score, feedback_text: feedback };
 
     // Changes summary: list axes that have a fix vs original
     const orig = scrapeData?.current || {};
@@ -368,7 +368,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       ? `<div class="deliv-title">Proposed Changes</div>` + lines.map(l => `<div class="deliv">${l}</div>`).join('')
       : `<div class="deliv-title">Proposed Changes</div><div class="deliv-text">No changes; the original labels passed review.</div>`;
 
-    // Feedback to tasker, plain text rendering
+    // Feedback to tasker: API already returns it cleaned and ready to paste
     reviewFeedback.innerHTML =
       `<div class="deliv-title">Note for the tasker</div>` +
       `<pre class="deliv-text" style="white-space:pre-wrap;">${escapeMd(feedback)}</pre>`;
