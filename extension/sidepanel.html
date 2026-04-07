@@ -33,8 +33,18 @@
       </div>
 
       <button id="runBtn" class="btn primary hidden">Run /run pipeline</button>
+      <button id="reviewBtn" class="btn primary hidden">Run /review</button>
       <button id="fillBtn" class="btn success hidden">Fill Deliverables</button>
+      <button id="applyFixesBtn" class="btn success hidden">Apply Review Fixes</button>
       <button id="clearBtn" class="btn hidden">Clear Page Fields</button>
+      <button id="statusBtn" class="btn hidden">Status</button>
+
+      <div id="statusCard" class="card hidden">
+        <details open>
+          <summary>Task Status</summary>
+          <div id="statusBody"></div>
+        </details>
+      </div>
 
       <div id="progress" class="progress hidden">
         <div class="spinner"></div>
@@ -47,6 +57,14 @@
         <details open>
           <summary>Deliverables</summary>
           <div id="resultsList"></div>
+        </details>
+      </div>
+
+      <div id="reviewCard" class="card hidden">
+        <details open>
+          <summary>Review Result</summary>
+          <div id="reviewChanges"></div>
+          <div id="reviewFeedback"></div>
         </details>
       </div>
 

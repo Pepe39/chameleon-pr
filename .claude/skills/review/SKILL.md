@@ -10,7 +10,44 @@ Reviews a task's deliverables: re-evaluates each axis label against the evidence
 Deliverables are the 4 axis `.md` files copied from the annotation platform.
 
 ## Arguments
-- `$ARGUMENTS` (positional): Task ID. E.g.: `/review 2937204136`
+- `$ARGUMENTS` (positional): Task ID, optionally followed by `auto`. E.g.: `/review 2937204136` or `/review 2937204136 auto`
+- **`auto` mode (bypass):** When the second token is `auto`, the skill runs the full review non-interactively. Do NOT ask the user any questions, do NOT wait for confirmations. Apply every recommended fix directly into `fixed_deliverables/`, write `feedback_to_cb.md`, then stop. The API/extension invokes the skill in this mode. Manual console runs (no `auto`) keep the interactive prompts.
+- **Idempotency:** If `feedback_to_cb.md` already exists in the task directory and is non-empty, print `Review already completed for {id}. Skipping.` and STOP immediately. Do not re-run any check. Applies in both interactive and auto mode.
+- **Friendly tone:** `feedback_to_cb.md` MUST be written in natural, friendly English, as if you were a colleague leaving a kind note. Avoid jargon dumps and report-style headings.
+- **Mandatory `review_meta.json`:** Every review MUST also write `review_meta.json` in the review directory with this exact shape:
+  ```json
+  {
+    "quality_score": <int 1-5>,
+    "feedback_text": "<friendly note that will be pasted into the platform Feedback textarea>"
+  }
+  ```
+  Scoring rubric: 5 = Excellent (no fixes needed), 4 = Very Good (minor wording/format), 3 = Good (one label or one reasoning fix), 2 = Needs Work (multiple label fixes or weak reasoning), 1 = Poor (most axes wrong). The `feedback_text` should be a self-contained, plain paragraph (no markdown headings) suitable to paste verbatim into the platform's "Feedback *" field. It can be the same as `feedback_to_cb.md` if that file is already plain prose, or a condensed version of it.
+
+## Progress tracking (mandatory)
+
+Every review run (interactive or auto) MUST maintain a `review_progress.md` file inside the review directory (next to `inputs.md`). Create it on first entry and update it as you advance through each phase.
+
+```markdown
+# Review Progress: {id}
+
+**Current Phase:** {phase name}
+**Status:** pending|in-progress|done|error
+**Last Updated:** {timestamp ISO 8601}
+
+| # | Phase | Status | Started | Completed |
+|---|------|--------|---------|-----------|
+| 01 | Locate task / load deliverables | pending | | |
+| 02 | Repo clone (head_sha)             | pending | | |
+| 03 | Data consistency (C0-C3)          | pending | | |
+| 04 | Content validation (V1-V5)        | pending | | |
+| 05 | Reasoning validation (R1-R5)      | pending | | |
+| 06 | Format & wording checks           | pending | | |
+| 07 | Apply fixes (fixed_deliverables/) | pending | | |
+| 08 | Feedback to tasker (+ review_meta.json) | pending | | |
+| 09 | Cleanup                           | pending | | |
+```
+
+Update the row's `Status`, `Started`, `Completed` columns and the top `Current Phase` line as you progress. Mark `done` only when the phase actually finished. Keep the file even if the review ends in error so the user can see how far it got.
 
 ## Instructions
 

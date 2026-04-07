@@ -22,6 +22,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent  # code-review/
 TASKS_DIR = PROJECT_ROOT / "tasks"
+REVIEWS_DIR = PROJECT_ROOT / "reviews"
 
 jobs = {}  # task_id -> {"status": running|done|error, "error": ..., "deliverables": ...}
 
@@ -47,6 +48,16 @@ def find_task_dir(task_id):
     return None
 
 
+def find_review_dir(task_id):
+    """Find a /review workspace under reviews/. Reviews never live under tasks/."""
+    if REVIEWS_DIR.is_dir():
+        for date_dir in sorted(REVIEWS_DIR.iterdir(), reverse=True):
+            candidate = date_dir / task_id
+            if candidate.is_dir():
+                return candidate
+    return None
+
+
 def write_inputs_md(task_dir, data):
     """Write inputs.md in the format that the /run skill (step-01-parse-inputs) expects."""
     lines = ["# Task Inputs", "", "## Task Variables", ""]
@@ -56,10 +67,10 @@ def write_inputs_md(task_dir, data):
     (task_dir / "inputs.md").write_text("\n".join(lines), encoding="utf-8")
 
 
-def run_claude(task_id, label="RUN"):
+def run_claude(task_id, label="RUN", command="run"):
     clean_env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
     cmd = [
-        "claude", "-p", f"/run {task_id} auto",
+        "claude", "-p", f"/{command} {task_id} auto",
         "--model", "claude-sonnet-4-6",
         "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep",
     ]
@@ -249,6 +260,220 @@ def delete_task(task_id):
     shutil.rmtree(task_dir)
     jobs.pop(task_id, None)
     return jsonify({"ok": True})
+
+
+# ---------- Review ----------
+
+review_jobs = {}  # task_id -> {"status": running|done|error, "error": ..., "result": ...}
+
+
+def _platform_axis_md(label, reasoning, axis_title, justification_label):
+    return f"{label}\n{axis_title}\n{reasoning}\n"
+
+
+def write_review_workspace(review_dir, data):
+    """Materialize inputs.md + deliverables/*.md from scraped page data."""
+    (review_dir / "deliverables").mkdir(parents=True, exist_ok=True)
+    (review_dir / "work").mkdir(parents=True, exist_ok=True)
+    write_inputs_md(review_dir, data)
+
+    deliv = data.get("current") or {}
+    q = deliv.get("quality") or {}
+    s = deliv.get("severity") or {}
+    c = deliv.get("context_scope") or {}
+    a = deliv.get("advanced") or {}
+
+    (review_dir / "deliverables" / "quality.md").write_text(
+        f"{q.get('label','')}\nAxis 1: Quality Justification *\n{q.get('reasoning','')}\n",
+        encoding="utf-8")
+    (review_dir / "deliverables" / "severity.md").write_text(
+        f"{s.get('label','')}\nAxis 2: Severity Justification *\n{s.get('reasoning','')}\n",
+        encoding="utf-8")
+
+    rows = "\n".join(
+        f"{i+1}\n{e.get('diff_line','')}\n{e.get('file_path','')}\n{e.get('why','')}"
+        for i, e in enumerate(c.get("entries") or [])
+    )
+    (review_dir / "deliverables" / "context_scope.md").write_text(
+        f"{c.get('label','')}\nAxis 3: Context\n\n#\tdiff_line\tfile_path\twhy\n{rows}\n",
+        encoding="utf-8")
+
+    (review_dir / "deliverables" / "advanced.md").write_text(
+        f"{a.get('label','')}\nAxis 4: Advanced Justification\n{a.get('reasoning','')}\n",
+        encoding="utf-8")
+
+
+def _parse_platform_axis_md(text, axis_num):
+    """Parse a platform-format file (label on line 1, then heading, then reasoning)."""
+    if not text:
+        return {"label": "", "reasoning": ""}
+    lines = text.splitlines()
+    label = lines[0].strip().strip("*_`").strip() if lines else ""
+    reasoning = ""
+    for i in range(1, len(lines)):
+        if "justification" in lines[i].lower() or "reasoning" in lines[i].lower():
+            reasoning = "\n".join(lines[i + 1:]).strip()
+            break
+    return {"label": label, "reasoning": reasoning}
+
+
+def read_fixed_deliverables(review_dir):
+    """Read fixed_deliverables/*.md (platform format) if present."""
+    fd = review_dir / "fixed_deliverables"
+    if not fd.is_dir():
+        return {}
+    out = {}
+    if (fd / "quality.md").is_file():
+        out["quality"] = _parse_platform_axis_md((fd / "quality.md").read_text(encoding="utf-8"), 1)
+    if (fd / "severity.md").is_file():
+        out["severity"] = _parse_platform_axis_md((fd / "severity.md").read_text(encoding="utf-8"), 2)
+    if (fd / "advanced.md").is_file():
+        out["advanced"] = _parse_platform_axis_md((fd / "advanced.md").read_text(encoding="utf-8"), 4)
+    if (fd / "context_scope.md").is_file():
+        out["context_scope"] = parse_context_scope((fd / "context_scope.md").read_text(encoding="utf-8"))
+    return out
+
+
+def read_review_outputs(review_dir):
+    """Return {feedback, fixed, quality_score, feedback_text} or None if review hasn't finished."""
+    fb = review_dir / "feedback_to_cb.md"
+    if not fb.is_file() or fb.stat().st_size == 0:
+        return None
+    feedback_md = fb.read_text(encoding="utf-8")
+    quality_score = None
+    feedback_text = feedback_md
+    meta_path = review_dir / "review_meta.json"
+    if meta_path.is_file():
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            quality_score = meta.get("quality_score")
+            if meta.get("feedback_text"):
+                feedback_text = meta["feedback_text"]
+        except Exception:
+            pass
+    return {
+        "feedback": feedback_md,
+        "fixed": read_fixed_deliverables(review_dir),
+        "quality_score": quality_score,
+        "feedback_text": feedback_text,
+    }
+
+
+@app.route("/review", methods=["POST"])
+def review():
+    data = request.get_json(silent=True) or {}
+    task_id = data.get("task_id")
+    if not task_id:
+        return jsonify({"error": "task_id required"}), 400
+
+    # Idempotency: feedback already exists?
+    existing = find_review_dir(task_id)
+    if existing:
+        out = read_review_outputs(existing)
+        if out:
+            return jsonify({"status": "done", **out})
+
+    if task_id in review_jobs and review_jobs[task_id]["status"] == "running":
+        return jsonify({"status": "running"})
+
+    review_dir = existing or (REVIEWS_DIR / date_folder() / task_id)
+    write_review_workspace(review_dir, data)
+
+    review_jobs[task_id] = {"status": "running", "error": None, "result": None}
+    threading.Thread(target=_review_worker, args=(task_id, review_dir), daemon=True).start()
+    return jsonify({"status": "running"})
+
+
+def _review_worker(task_id, review_dir):
+    try:
+        ok, result = run_claude(task_id, label="REVIEW", command="review")
+        if not ok:
+            review_jobs[task_id] = {"status": "error", "error": result.get("error"), "result": None}
+            return
+        out = read_review_outputs(review_dir)
+        if not out:
+            review_jobs[task_id] = {
+                "status": "error",
+                "error": "Review finished but feedback_to_cb.md is missing or empty",
+                "result": None,
+            }
+            return
+        review_jobs[task_id] = {"status": "done", "error": None, "result": out}
+        print(f"[REVIEW] Done: {task_id}")
+    except Exception as e:
+        review_jobs[task_id] = {"status": "error", "error": str(e), "result": None}
+        print(f"[REVIEW] CRASH {task_id}: {e}")
+
+
+@app.route("/review/status/<task_id>", methods=["GET"])
+def review_status(task_id):
+    if task_id in review_jobs:
+        job = review_jobs[task_id]
+        if job["status"] == "running":
+            return jsonify({"status": "running"})
+        if job["status"] == "error":
+            return jsonify({"status": "error", "error": job["error"]})
+    review_dir = find_review_dir(task_id)
+    if review_dir:
+        out = read_review_outputs(review_dir)
+        if out:
+            return jsonify({"status": "done", **out})
+    return jsonify({"status": "not_found"})
+
+
+@app.route("/state/<task_id>", methods=["GET"])
+def state(task_id):
+    """Combined snapshot for the extension's Status panel."""
+    out = {"task_id": task_id, "run": None, "review": None}
+
+    # /run state
+    run_dir = find_task_dir(task_id)
+    run_block = {"present": bool(run_dir), "status": "not_found", "progress": None}
+    if run_dir:
+        prog = run_dir / "progress.md"
+        if prog.is_file():
+            run_block["progress"] = prog.read_text(encoding="utf-8")
+        deliv = read_deliverables(run_dir)
+        if deliv:
+            run_block["status"] = "done"
+        elif task_id in jobs and jobs[task_id]["status"] == "running":
+            run_block["status"] = "running"
+        elif task_id in jobs and jobs[task_id]["status"] == "error":
+            run_block["status"] = "error"
+            run_block["error"] = jobs[task_id]["error"]
+        else:
+            run_block["status"] = "incomplete"
+    elif task_id in jobs and jobs[task_id]["status"] == "running":
+        run_block["status"] = "running"
+    out["run"] = run_block
+
+    # /review state
+    review_dir = None
+    if REVIEWS_DIR.is_dir():
+        for d in sorted(REVIEWS_DIR.iterdir(), reverse=True):
+            cand = d / task_id
+            if cand.is_dir():
+                review_dir = cand
+                break
+    review_block = {"present": bool(review_dir), "status": "not_found", "progress": None}
+    if review_dir:
+        rprog = review_dir / "review_progress.md"
+        if rprog.is_file():
+            review_block["progress"] = rprog.read_text(encoding="utf-8")
+        if (review_dir / "feedback_to_cb.md").is_file() and (review_dir / "feedback_to_cb.md").stat().st_size > 0:
+            review_block["status"] = "done"
+        elif task_id in review_jobs and review_jobs[task_id]["status"] == "running":
+            review_block["status"] = "running"
+        elif task_id in review_jobs and review_jobs[task_id]["status"] == "error":
+            review_block["status"] = "error"
+            review_block["error"] = review_jobs[task_id]["error"]
+        else:
+            review_block["status"] = "incomplete"
+    elif task_id in review_jobs and review_jobs[task_id]["status"] == "running":
+        review_block["status"] = "running"
+    out["review"] = review_block
+
+    return jsonify(out)
 
 
 if __name__ == "__main__":

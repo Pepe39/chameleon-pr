@@ -21,6 +21,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch(e => sendResponse({ error: e.message }));
     return true;
   }
+  if (msg.action === 'scrapeReview') {
+    chrome.scripting
+      .executeScript({ target: { tabId: msg.tabId }, func: scrapeReviewPage })
+      .then(([r]) => sendResponse(r.result))
+      .catch(e => sendResponse({ error: e.message }));
+    return true;
+  }
   if (msg.action === 'clearFields') {
     chrome.scripting
       .executeScript({ target: { tabId: msg.tabId }, func: clearFieldsPage })
@@ -29,6 +36,96 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 });
+
+// =========================================================
+// INJECTED: Scrape a New Review page (variables + current axis values)
+// =========================================================
+function scrapeReviewPage() {
+  try {
+    const VARS = ['pull_request_url','nwo','head_sha','comment_id','body','file_path','diff_line','discussion_url','repo_url','coding_language'];
+    function normalize(s){return (s||'').trim().toLowerCase();}
+    function findValueFor(v){
+      const target=v.toLowerCase(), tc=target+':';
+      const all=document.querySelectorAll('label, dt, th, span, div, strong, b, p, td');
+      for (const el of all){
+        const t=normalize(el.textContent);
+        if (t!==target && t!==tc) continue;
+        const tries=[el.nextElementSibling,
+                     el.parentElement?.lastElementChild!==el?el.parentElement?.lastElementChild:null,
+                     el.parentElement?.nextElementSibling];
+        for (const c of tries){
+          if(!c||c===el) continue;
+          if(c.tagName==='A'&&c.href) return c.href;
+          if(c.tagName==='INPUT'||c.tagName==='TEXTAREA') return c.value||'';
+          const txt=(c.innerText||c.textContent||'').trim();
+          if(txt && normalize(txt)!==target && normalize(txt)!==tc) return txt;
+        }
+      }
+      return '';
+    }
+
+    const data = {};
+    for (const v of VARS) data[v] = findValueFor(v);
+    const m = location.pathname.match(/\/tasks\/([a-z0-9]+)/i);
+    data.task_id = m ? m[1] : '';
+    if (!data.task_id) return { error: 'Could not extract task_id from URL' };
+
+    // Find the tight section around an axis label and return select + nearest justification textarea
+    function tightSection(title) {
+      const labels = document.querySelectorAll('label, h1, h2, h3, h4, legend');
+      for (const h of labels) {
+        if (!(h.textContent || '').trim().startsWith(title)) continue;
+        let p = h.parentElement;
+        for (let i = 0; i < 12 && p; i++) {
+          const ctrls = p.querySelectorAll('select, textarea').length;
+          const axes = (p.textContent || '').match(/Axis \d/g) || [];
+          if (ctrls >= 1 && axes.length <= 1) return p;
+          p = p.parentElement;
+        }
+      }
+      return null;
+    }
+    function justFor(title) {
+      // Justification is in a sibling section with title "{title} Justification"
+      const sec = tightSection(`${title} Justification`);
+      const ta = sec?.querySelector('textarea');
+      return ta?.value || '';
+    }
+    function selVal(title) {
+      const sec = tightSection(title);
+      const sel = sec?.querySelector('select');
+      return sel?.value || '';
+    }
+
+    const current = {
+      quality:  { label: selVal('Axis 1: Quality'),       reasoning: justFor('Axis 1: Quality') },
+      severity: { label: selVal('Axis 2: Severity'),      reasoning: justFor('Axis 2: Severity') },
+      advanced: { label: selVal('Axis 4: Advanced'),      reasoning: justFor('Axis 4: Advanced') },
+      context_scope: { label: selVal('Axis 3: Context Scope'), entries: [] },
+    };
+
+    // Context entries from the table
+    const tbl = Array.from(document.querySelectorAll('table'))
+      .find(t => /diff_line/.test(t.textContent || '') && /file_path/.test(t.textContent || ''));
+    if (tbl) {
+      const tbody = tbl.querySelector('tbody') || tbl;
+      tbody.querySelectorAll('tr').forEach(tr => {
+        const fields = tr.querySelectorAll('input, textarea');
+        if (fields.length >= 3) {
+          current.context_scope.entries.push({
+            diff_line: fields[0].value || '',
+            file_path: fields[1].value || '',
+            why: fields[2].value || '',
+          });
+        }
+      });
+    }
+
+    return { ...data, current };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
 
 // =========================================================
 // INJECTED: Clear all axis fields on the annotation platform
@@ -338,6 +435,42 @@ function fillDeliverablesPage(deliverables) {
     }
 
     await fillAxis('Axis 4: Advanced', a.label || '', a.reasoning || '');
+
+    // Quality Score: 1-5 star buttons under "Quality Score" label
+    if (deliverables.quality_score) {
+      const n = parseInt(deliverables.quality_score, 10);
+      if (n >= 1 && n <= 5) {
+        const labels = document.querySelectorAll('label, h1, h2, h3, h4, legend');
+        let scoreLabel = null;
+        for (const l of labels) {
+          if (/Quality Score/i.test(l.textContent || '')) { scoreLabel = l; break; }
+        }
+        if (scoreLabel) {
+          const container = scoreLabel.parentElement;
+          const starBtn = container?.querySelector(`button[aria-label="${n} star"], button[aria-label="${n} stars"]`);
+          if (starBtn) { starBtn.click(); await delay(80); results.filled++; }
+          else results.errors.push(`Quality Score button for ${n} not found`);
+        } else {
+          results.errors.push('Quality Score label not found');
+        }
+      }
+    }
+
+    // Feedback textarea: <textarea placeholder="Add feedback for the attempter...">
+    if (deliverables.feedback_text) {
+      const fbTa = Array.from(document.querySelectorAll('textarea'))
+        .find(t => /add feedback for the attempter/i.test(t.placeholder || ''));
+      if (fbTa) {
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+        setter.call(fbTa, deliverables.feedback_text);
+        fbTa.dispatchEvent(new Event('input', { bubbles: true }));
+        fbTa.dispatchEvent(new Event('change', { bubbles: true }));
+        await delay(80);
+        results.filled++;
+      } else {
+        results.errors.push('Feedback textarea not found');
+      }
+    }
 
     return results;
   }
