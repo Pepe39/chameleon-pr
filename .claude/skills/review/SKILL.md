@@ -379,9 +379,10 @@ This is the core of the review. For each axis, independently re-derive what the 
 
 Re-read the comment body and the Comment Analysis from task_info.md. Apply the decision tree:
 
-1. Is the comment factually incorrect? (misunderstands code, would introduce a bug, false claim) -> `wrong`
-2. Does it identify a genuine issue, catch a real bug, or suggest a meaningful improvement? Is it actionable and specific? -> `helpful`
-3. Technically correct but no practical value? (pedantic, obvious, not actionable) -> `unhelpful`
+1. Is the comment factually incorrect, misunderstands code, would introduce a bug, makes a false claim -> `wrong`
+2. **Non-actionable taint check.** Scan the WHOLE body for hedges that punt discovery work back to the attempter, like `if the repo has one`, `if it exists`, `if available`, `or use the existing X if there is one`, `consider using ...`, `you may want to ...`. If ANY portion of the body contains such a hedge, the comment is `unhelpful`, regardless of how good the rest is. The attempter cannot act on a suggestion that first requires them to verify the existence of something. The reviewer is supposed to bring that context. Example: `"replace this with a proper segmented control (or use an existing accessible segmented-control/tabs component if the repo has one)"` is `unhelpful` because the parenthetical taints the actionable first half.
+3. Does it identify a genuine issue, catch a real bug, or suggest a meaningful improvement, AND is fully actionable -> `helpful`
+4. Technically correct but no practical value, pedantic, obvious, not actionable -> `unhelpful`
 
 Record your independent label. Compare against the task's label.
 
