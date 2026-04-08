@@ -16,6 +16,18 @@ These rules apply to ALL text output: reasoning fields, deliverable .md files, t
 
 **The `## Reasoning` section in each deliverable file is the justification the user pastes directly into the annotation platform. It must be self-contained, clear, and ready to copy-paste as-is.**
 
+### ZERO TOLERANCE characters
+
+The following characters MUST NEVER appear in any justification, reasoning, feedback, or explanation text. This is a hard rule, not a preference. Before writing any justification or feedback file, and again before saving it, scan the text and remove every instance of:
+
+- Em-dash `—`
+- En-dash `–`
+- Hyphen `-` used as a sentence connector (hyphens are only allowed inside compound words like `focus-loss` or numeric ranges like `lines 83-120`, never as a substitute for a comma or em-dash)
+- Semicolon `;`
+- Colon `:` (except inside file paths like `src/foo.ts:42`)
+
+If you catch yourself typing one of these to join clauses or introduce an aside, stop and rewrite as two separate sentences. After writing any feedback or reasoning, do a final pass searching for `—`, `–`, `;`, and stray `:` and rewrite those sentences before saving.
+
 ### Prohibited
 - **Em-dashes** (`—`): split into two sentences or use commas instead
 - **En-dashes** (`–`): use hyphens (`-`) for ranges (e.g., "lines 83-120")
