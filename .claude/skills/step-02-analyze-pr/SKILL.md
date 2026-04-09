@@ -46,13 +46,12 @@ Use the GitHub compare API to get the diff at the exact `head_sha`:
 gh api repos/{nwo}/compare/main...{head_sha} --jq '.files[] | {filename, patch, status}'
 ```
 
-If the above fails or returns incomplete data, fall back to:
+If the above fails or returns incomplete data, fall back in this order:
 
-```bash
-gh pr diff {pr_number} --repo {nwo}
-```
+1. `gh pr diff {pr_number} --repo {nwo}`
+2. `curl -sL https://github.com/{nwo}/pull/{pr_number}.diff` (works for public repos with no auth, add `-H "Authorization: Bearer $GH_TOKEN"` for private)
 
-But if using the fallback, add a warning to `task_info.md`:
+Both fallbacks return the **current** PR diff, not the one at `head_sha`. If you use either, add a warning to `task_info.md`:
 > **Warning:** Diff fetched from current PR state, not from head_sha. The PR may have been updated after the comment was made. Verify diff accuracy against the comment's diff_hunk if results seem inconsistent.
 
 Save the full diff to `tasks/{date}/{id}/work/pr_diff.txt` for reference.
