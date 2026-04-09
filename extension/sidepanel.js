@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const reviewChanges = $('reviewChanges');
   const reviewFeedback = $('reviewFeedback');
   const statusBtn = $('statusBtn');
+  const resyncBtn = $('resyncBtn');
   const statusCard = $('statusCard');
   const statusBody = $('statusBody');
   let reviewFixes = null;
@@ -163,11 +164,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       scrapePreview.classList.remove('hidden');
       statusBtn.classList.remove('hidden');
 
-      // Detect stage from page DOM
-      const isReviewStage = await detectReviewStage(tab.id);
+      // Detect stage from page DOM (stepper-based)
+      const layer = await detectPlatformLayer(tab.id);
+      const isReviewStage = layer === 'New Review' || layer === 'QC Layer';
+      runBtn.textContent = 'Run /run pipeline';
+      reviewBtn.textContent = 'Run /review';
       if (isReviewStage) {
         reviewBtn.classList.remove('hidden');
-        pageStatusText.textContent = 'New Review stage';
+        pageStatusText.textContent = `${layer} stage`;
         pageStatusDot.className = 'status-dot connected';
         // Re-scrape with the review-aware scraper so we have current axis values for the diff view
         try {
@@ -188,6 +192,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
+      // Annotation (or unknown) layer -> /run
+      pageStatusText.textContent = layer ? `${layer} stage` : 'Ready';
       runBtn.classList.remove('hidden');
 
       // Check existing task on the API
@@ -217,10 +223,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  resyncBtn.addEventListener('click', () => {
+    showStatus('Resyncing...', 'info');
+    detect().then(() => showStatus('Resynced', 'success'));
+  });
+
   detect();
   chrome.tabs.onActivated?.addListener(() => setTimeout(detect, 400));
+  // The annotation platform is a SPA, so navigating between tasks triggers a
+  // URL change but never a full-load "complete". Listen for both.
   chrome.tabs.onUpdated?.addListener((_id, info) => {
-    if (info.status === 'complete') setTimeout(detect, 400);
+    if (info.status === 'complete' || info.url) setTimeout(detect, 400);
   });
 
   // ============ Run ============
@@ -306,27 +319,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ============ Review ============
-  async function detectReviewStage(tabId) {
+  async function detectPlatformLayer(tabId) {
     try {
       const [r] = await chrome.scripting.executeScript({
         target: { tabId },
         func: () => {
-          const txt = document.body.innerText || '';
-          // Strongest signal: the page header shows "In Review" badge only on review stages
-          if (txt.includes('In Review')) return true;
-          // Fallback: stepper contains "New Review" AND selects are pre-populated by the annotator
-          if (txt.includes('New Review')) {
-            const sels = Array.from(document.querySelectorAll('select'));
-            const filled = sels.filter(s => s.value && s.value !== '').length;
-            if (filled >= 3) return true;
+          // The stepper at the top of the task page has 4 steps: Annotation,
+          // New Review, QC Layer, Done. The active step's circle has Tailwind
+          // classes containing "blue-500" (bg-blue-500/15, border-blue-500,
+          // text-blue-500, ring-blue-500/20). Inactive steps use slate-*.
+          const STEPS = ['Annotation', 'New Review', 'QC Layer', 'Done'];
+          const leaves = document.querySelectorAll('span, div, p, li, button, a');
+          for (const el of leaves) {
+            if (el.children.length) continue;
+            const t = (el.textContent || '').trim();
+            if (!STEPS.includes(t)) continue;
+            // The label sits below a sibling circle inside the same parent.
+            const parent = el.parentElement;
+            if (!parent) continue;
+            const html = (parent.outerHTML || '').toLowerCase();
+            if (/blue-500/.test(html)) return t;
           }
-          return false;
+          return '';
         },
       });
-      return !!r?.result;
+      return r?.result || '';
     } catch {
-      return false;
+      return '';
     }
+  }
+  async function detectReviewStage(tabId) {
+    const layer = await detectPlatformLayer(tabId);
+    return layer === 'New Review' || layer === 'QC Layer';
   }
 
   function escapeMd(s) { return escapeHtml(s || ''); }
