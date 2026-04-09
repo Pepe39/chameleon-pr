@@ -106,19 +106,19 @@ Classify the overall quality of the review comment. Choose exactly one label.
 
 ### Helpful
 
-**Definition:** Comment identifies a genuine issue, suggests a meaningful improvement, or catches a real bug.
+**Definition:** Comment identifies a genuine issue, suggests a significant improvement, or detects a real bug.
 
 **Example:** "This null check should happen before the dereference on L42, not after."
 
-**Look for:** The comment is technically correct, actionable, and adds value. It points to something a competent engineer would want addressed.
+**Look for:** The comment is technically correct, actionable, and adds value. It points to something a competent engineer would want resolved. It does not matter whether the comment offers one option or several to fix the issue. What defines the label is the quality of the issue detected and whether the suggestion has substance, not the number of proposed paths.
 
 ### Unhelpful
 
-**Definition:** Comment is pedantic, stylistic without substance, obvious, or not actionable.
+**Definition:** Comment is pedantic, stylistic without substance, obvious, or not actionable. Can be technically correct but adds no practical value.
 
 **Example:** "Consider adding a comment here." (on self-documenting code)
 
-**Look for:** The comment may be technically true, but it adds no practical value. It doesn't identify a real issue or provide a meaningful improvement.
+**Look for:** The comment may be technically true, but it adds no practical value. It does not identify a real issue or provide a significant improvement. Also Unhelpful when the comment offers multiple fix options that contradict each other or one is significantly worse than the other, so the comment confuses the dev instead of guiding them. Also Unhelpful when the comment points at a real problem but the proposed fix introduces regressions, incompatibilities, or worsens overall code quality.
 
 ### Wrong
 
