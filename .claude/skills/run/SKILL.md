@@ -100,6 +100,7 @@ Paste your task variables below. Fill in each field from the annotation platform
 | 06 | Label Context Scope | pending | | |
 | 07 | Label Advanced | pending | | |
 | 08 | Generate Output | pending | | |
+| 09 | Recheck | pending | | |
 ```
 
 5. Generate `tasks/{date}/{id}/task_info.md`:
@@ -140,7 +141,7 @@ Read `tasks/{date}/{id}/progress.md`. Extract Current Step and Status.
 
 ```
 == Task {id} ==
-Steps completed: {N}/8
+Steps completed: {N}/9
 Next step: {N} - {name} ({status})
 ```
 
@@ -168,6 +169,7 @@ Dispatch logic:
 | 06 | step-06-label-context-scope |
 | 07 | step-07-label-advanced |
 | 08 | step-08-generate-output |
+| 09 | step-09-recheck |
 
 ### 5. Execute step
 
@@ -178,7 +180,7 @@ Read `.claude/skills/{step-command}.md` and follow ALL instructions from that fi
 1. Update progress.md (each step already does this when finishing)
 2. Show: "Step {N} completed. Next: {N+1} - {name}"
 3. **Interactive mode:** Ask "Continue with the next step? (yes/no)". If yes -> back to step 4. If no -> section 7 (Cleanup), then show "To resume: `/run {id}`".
-4. **Auto mode:** Do NOT ask. Loop straight back to step 4 with the next pending step until all 8 steps are `done`, then proceed to section 7 (Cleanup) and stop.
+4. **Auto mode:** Do NOT ask. Loop straight back to step 4 with the next pending step until all 9 steps are `done`, then proceed to section 7 (Cleanup) and stop. If step 09 emits `RECHECK_FAILED`, stop immediately and surface the failure. Do NOT proceed to cleanup.
 
 ### 7. Cleanup
 

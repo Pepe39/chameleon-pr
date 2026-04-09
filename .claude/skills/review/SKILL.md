@@ -50,6 +50,7 @@ Every review run (interactive or auto) MUST maintain a `review_progress.md` file
 | 05 | Reasoning validation (R1-R5)      | pending | | |
 | 06 | Format & wording checks           | pending | | |
 | 07 | Apply fixes (fixed_deliverables/) | pending | | |
+| 07A | Consistency recheck (step-09-recheck) | pending | | |
 | 08 | Feedback to tasker (+ review_meta.json) | pending | | |
 | 09 | Cleanup                           | pending | | |
 ```
@@ -76,6 +77,7 @@ Phase-to-section mapping (so you know which phase you are in while reading the i
 | 05 Reasoning validation (R1-R5)     | Section 5 |
 | 06 Format & wording checks          | Sections 6, 7 |
 | 07 Apply fixes (fixed_deliverables) | Sections 8, 9, 10, 11 |
+| 07A Consistency recheck (step-09-recheck) | Section 11A |
 | 08 Feedback to tasker (+ review_meta.json) | Section 12 |
 | 09 Cleanup                          | Section 13 |
 
@@ -669,6 +671,22 @@ For each format FAIL:
 1. Show what was expected vs found
 2. Ask: "Fix these automatically? (yes/no)"
 3. If yes, write corrected files to `fixed_deliverables/` and re-run checks
+
+---
+
+### 11A. Consistency recheck (step-09-recheck)
+
+After all fixes (if any) have been written to `fixed_deliverables/`, invoke the `step-09-recheck` sub-skill in review mode over the task id. This runs the full verification checklist (file integrity, label values, file-path and line-number validation against the repo clone, comment consistency, wording rules, and cross-axis consistency) over `fixed_deliverables/` with `deliverables/` as the baseline.
+
+- Auto mode: run `step-09-recheck {id} review auto`.
+- Interactive mode: run `step-09-recheck {id} review`.
+
+If the recheck emits `RECHECK_FAILED`:
+- Read `recheck_report.md` from the task directory.
+- For wording-only failures, step-09-recheck will have already rewritten the offending files in place under `fixed_deliverables/`. Nothing else to do.
+- For label, path, or cross-axis failures that step-09-recheck could not auto-fix, apply corrections to the corresponding file in `fixed_deliverables/` and rerun `step-09-recheck {id} review auto` once. If it still fails, continue to Section 12 but mention the remaining issues in the feedback paragraph and point the user to `recheck_report.md`.
+
+If the recheck emits `RECHECK_PASSED`, continue straight to Section 12.
 
 ---
 
