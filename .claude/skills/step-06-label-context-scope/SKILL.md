@@ -56,6 +56,8 @@ List every specific piece of evidence the reviewer used. For each entry:
 - `file_path`: repo-relative path to the file.
 - `why`: a short phrase explaining why this context matters.
 
+**ZERO-TOLERANCE punctuation in `why`:** the `why` field is user-facing text and is subject to the same wording rules as any justification. It MUST NOT contain em-dashes (`—`), en-dashes (`–`), hyphens used as sentence connectors, semicolons (`;`), or colons (`:`) outside file paths. If you need to join two ideas, write two short phrases separated by a period or use a comma. Before saving, re-read every `why` value and rewrite any that contain forbidden characters. This applies equally to `context.json`, `labels.json`, `context_scope.md`, and `task_info.md`.
+
 **Rules:**
 - If scope is `diff`, at least one entry is needed (the commented line).
 - If scope is `file`, include both the diff lines AND the non-diff lines that were needed.
