@@ -77,7 +77,7 @@ For each entry in `labels.json.context`:
 | P1 | `file_path` exists in the repo clone: `test -f "work/repo/{file_path}"`. |
 | P2 | If `diff_line` is non-empty, parse it. Accept a single integer (`246`), a range (`65-116`), or a comma list (`12,34-40`). Every parsed line number must be within the file's line count (`wc -l work/repo/{file_path}`). |
 | P3 | If `diff_line` is non-empty, the referenced line(s) must be non-blank in the file. Read with `sed -n '{n}p'` and verify the content is not whitespace-only. |
-| P4 | If `diff_line` is non-empty, verify the line is covered by a hunk in `work/pr_diff.txt` for that `file_path`. Use the `@@ -x,y +a,b @@` headers to compute the set of line numbers present in the new file, then check membership. If the file is new in the PR, all added lines count. |
+| P4 | If `diff_line` is non-empty, verify the line is covered by a hunk in `work/pr_diff.txt` for that `file_path`. Use the `@@ -x,y +a,b @@` headers to compute the set of line numbers present in the new file, then check membership. If the file is new in the PR, all added lines count. **Tolerance:** if the line falls within ±5 lines of a hunk boundary but is not inside any hunk, report as `warn` instead of `fail`. This accounts for outdated comments where the PR was updated after the comment was posted, shifting line numbers slightly. |
 | P5 | If the `why` field references a specific symbol (function, class, or variable name in backticks), at least one of those symbols must appear in the file at or near the referenced line(s). Use `grep -n` within a +/- 5 line window around each referenced line. This is a soft check: report as `warn` instead of `fail` if no match is found, but still record it. |
 
 ### C - Comment and context consistency
