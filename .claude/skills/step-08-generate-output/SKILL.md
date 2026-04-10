@@ -69,7 +69,7 @@ Write `tasks/{date}/{id}/deliverables/labels.json`:
 **Formatting rules:**
 - Use 2-space indentation
 - `advanced` must be a string matching one of the platform categories or `"False"`
-- `diff_line` must be a string or `null`, not a number
+- `diff_line` must be a string (e.g., `"42"`) or JSON `null` when empty. Never use `""`, `"null"`, or a bare number
 - All string values must be properly escaped
 
 ### 5. Generate context.json

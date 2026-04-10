@@ -180,6 +180,13 @@ failures (something the auto-fix could not handle) and must be reported.
 
 ## Non-negotiables
 
+- **Fix the root cause, never silence a check.** When a check flags a problem
+  (especially C4 reconciliation or label-consistency checks), the correct
+  response is to investigate and fix the deliverable, NOT to downgrade the
+  check severity or relax the rule so it passes. A reconciliation request
+  means the label may be wrong. Re-evaluate the label first. Only after
+  confirming the label is correct should you consider whether the check
+  itself needs a tolerance exception for a legitimate edge case.
 - Never modify `deliverables/` from review-mode. Review-mode only writes to
   `fixed_deliverables/` and `recheck_report.md`.
 - Never delete `recheck_report.md` on retry. Overwrite it with the latest run.

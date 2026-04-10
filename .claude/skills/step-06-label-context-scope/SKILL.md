@@ -52,7 +52,7 @@ Evaluate from narrowest to broadest:
 
 List every specific piece of evidence the reviewer used. For each entry:
 
-- `diff_line`: line number or range (e.g., "42", "42-50"). Set to `null` if the exact line is hard to locate.
+- `diff_line`: line number or range as a string (e.g., `"42"`, `"42-50"`). When the input field is empty or no specific line applies, set to JSON `null`, not an empty string, not `""`, not `"null"`. The literal JSON value `null`.
 - `file_path`: repo-relative path to the file.
 - `why`: a short phrase explaining why this context matters.
 
