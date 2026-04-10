@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const reviewChanges = $('reviewChanges');
   const reviewFeedback = $('reviewFeedback');
   const statusBtn = $('statusBtn');
+  const recheckBtn = $('recheckBtn');
   const resyncBtn = $('resyncBtn');
   const statusCard = $('statusCard');
   const statusBody = $('statusBody');
@@ -75,7 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (type === 'success') setTimeout(() => statusEl.classList.add('hidden'), 4000);
   }
   function hideAll() {
-    [taskInfo, scrapePreview, runBtn, reviewBtn, fillBtn, applyFixesBtn, reevaluateBtn, clearBtn, statusBtn,
+    [taskInfo, scrapePreview, runBtn, reviewBtn, fillBtn, applyFixesBtn, reevaluateBtn, recheckBtn, clearBtn, statusBtn,
      progress, statusEl, resultsCard, reviewCard, statusCard, wrongPage].forEach(e => e.classList.add('hidden'));
   }
 
@@ -131,6 +132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     resultsCard.classList.remove('hidden');
     fillBtn.classList.remove('hidden');
     clearBtn.classList.remove('hidden');
+    recheckBtn.classList.remove('hidden');
   }
 
   // ============ Detect & Scrape ============
@@ -403,6 +405,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyFixesBtn.classList.remove('hidden');
     // Reevaluate button only makes sense in review stage
     reevaluateBtn.classList.remove('hidden');
+    recheckBtn.classList.remove('hidden');
   }
 
   reviewBtn.addEventListener('click', async () => {
@@ -548,6 +551,83 @@ document.addEventListener('DOMContentLoaded', async () => {
     reevaluateBtn.textContent = 'Reevaluate Review';
     reevaluateBtn.disabled = false;
   });
+
+  // ============ Recheck ============
+  recheckBtn.addEventListener('click', async () => {
+    if (!scrapeData) return;
+    recheckBtn.disabled = true;
+    recheckBtn.textContent = 'Running recheck...';
+    progress.classList.remove('hidden');
+    progressText.textContent = 'Starting recheck...';
+    try {
+      const api = await getApi();
+      const r = await fetch(`${api}/recheck`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: scrapeData.task_id }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error || `HTTP ${r.status}`);
+      }
+      const s = await r.json();
+      if (s.status === 'done') {
+        progress.classList.add('hidden');
+        showRecheckResult(s);
+      } else {
+        progressText.textContent = 'Claude is rechecking...';
+        pollRecheck(api, scrapeData.task_id);
+      }
+    } catch (err) {
+      progress.classList.add('hidden');
+      showStatus(err.message, 'error');
+    }
+    recheckBtn.textContent = 'Recheck';
+    recheckBtn.disabled = false;
+  });
+
+  async function pollRecheck(api, tid) {
+    for (let i = 0; i < 120; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      if (scrapeData?.task_id !== tid) return;
+      progressText.textContent = `Rechecking... ${i * 3}s`;
+      try {
+        const r = await fetch(`${api}/recheck/status/${tid}`);
+        const s = await r.json();
+        if (s.status === 'done') {
+          progress.classList.add('hidden');
+          showRecheckResult(s);
+          recheckBtn.textContent = 'Recheck';
+          recheckBtn.disabled = false;
+          return;
+        }
+        if (s.status === 'error') throw new Error(s.error || 'Recheck failed');
+      } catch (err) {
+        if (err.message !== 'Failed to fetch') {
+          progress.classList.add('hidden');
+          recheckBtn.textContent = 'Recheck';
+          recheckBtn.disabled = false;
+          showStatus(err.message, 'error');
+          return;
+        }
+      }
+    }
+    progress.classList.add('hidden');
+    recheckBtn.textContent = 'Recheck';
+    recheckBtn.disabled = false;
+    showStatus('Recheck timeout', 'error');
+  }
+
+  function showRecheckResult(s) {
+    const passed = s.passed;
+    const report = s.report || '(no report generated)';
+    showStatus(passed ? 'Recheck PASSED' : 'Recheck FAILED', passed ? 'success' : 'error');
+    statusBody.innerHTML =
+      `<div class="deliv-title">${passed ? '✅' : '❌'} Recheck ${passed ? 'Passed' : 'Failed'}</div>` +
+      `<details open><summary>recheck_report.md</summary>` +
+      `<pre class="deliv-text" style="white-space:pre-wrap;">${escapeHtml(report)}</pre></details>`;
+    statusCard.classList.remove('hidden');
+  }
 
   // ============ Status panel ============
   statusBtn.addEventListener('click', async () => {

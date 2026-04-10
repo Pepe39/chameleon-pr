@@ -538,6 +538,82 @@ def state(task_id):
     return jsonify(out)
 
 
+# ---------- Recheck ----------
+
+recheck_jobs = {}  # task_id -> {"status": running|done|error, "error": ..., "report": ...}
+
+
+@app.route("/recheck", methods=["POST"])
+def recheck():
+    data = request.get_json(force=True) or {}
+    task_id = data.get("task_id", "").strip()
+    if not task_id:
+        return jsonify({"error": "task_id required"}), 400
+
+    if task_id in recheck_jobs and recheck_jobs[task_id]["status"] == "running":
+        return jsonify({"status": "running"})
+
+    # Determine mode: review-mode if fixed_deliverables/ exist, run-mode otherwise
+    task_dir = find_task_dir(task_id)
+    review_dir = find_review_dir(task_id)
+    mode = "auto"
+    if review_dir and (review_dir / "fixed_deliverables").is_dir():
+        mode = "review auto"
+    elif task_dir and (task_dir / "fixed_deliverables").is_dir():
+        mode = "review auto"
+
+    recheck_jobs[task_id] = {"status": "running", "error": None, "report": None}
+    threading.Thread(
+        target=_recheck_worker, args=(task_id, mode), daemon=True
+    ).start()
+    return jsonify({"status": "running"})
+
+
+def _recheck_worker(task_id, mode):
+    try:
+        ok, result = run_claude(
+            task_id, label="RECHECK", command="step-09-recheck", mode=mode
+        )
+        if not ok:
+            recheck_jobs[task_id] = {
+                "status": "error",
+                "error": result.get("error"),
+                "report": None,
+            }
+            return
+        # Read recheck_report.md
+        report = None
+        for base in [find_task_dir(task_id), find_review_dir(task_id)]:
+            if base and (base / "recheck_report.md").is_file():
+                report = (base / "recheck_report.md").read_text(encoding="utf-8")
+                break
+        passed = result.stdout and "RECHECK_PASSED" in result.stdout
+        recheck_jobs[task_id] = {
+            "status": "done",
+            "error": None,
+            "report": report,
+            "passed": passed,
+        }
+        print(f"[RECHECK] Done: {task_id} — {'PASSED' if passed else 'FAILED'}")
+    except Exception as e:
+        recheck_jobs[task_id] = {"status": "error", "error": str(e), "report": None}
+        print(f"[RECHECK] CRASH {task_id}: {e}")
+
+
+@app.route("/recheck/status/<task_id>", methods=["GET"])
+def recheck_status(task_id):
+    if task_id in recheck_jobs:
+        job = recheck_jobs[task_id]
+        return jsonify(job)
+    # Check for an existing report on disk
+    for base in [find_task_dir(task_id), find_review_dir(task_id)]:
+        if base and (base / "recheck_report.md").is_file():
+            report = (base / "recheck_report.md").read_text(encoding="utf-8")
+            passed = "0 failures" in report
+            return jsonify({"status": "done", "report": report, "passed": passed})
+    return jsonify({"status": "not_found"})
+
+
 if __name__ == "__main__":
     print(f"PROJECT_ROOT: {PROJECT_ROOT}")
     print(f"TASKS_DIR:    {TASKS_DIR}")
