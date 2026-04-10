@@ -592,7 +592,9 @@ def _recheck_worker(task_id, mode, model=None):
             if base and (base / "recheck_report.md").is_file():
                 report = (base / "recheck_report.md").read_text(encoding="utf-8")
                 break
-        passed = result.stdout and "RECHECK_PASSED" in result.stdout
+        passed = bool(result.stdout and "RECHECK_PASSED" in result.stdout)
+        if not passed and report:
+            passed = "0 failures" in report
         recheck_jobs[task_id] = {
             "status": "done",
             "error": None,

@@ -87,13 +87,20 @@ If a phase is skipped because there is nothing to do (e.g., no fixes to apply), 
 
 ### 1. Locate task
 
-First check if the task exists in `tasks/`:
+First check if a review workspace already exists in `reviews/` (the API pre-creates it there):
+```bash
+find reviews/ -maxdepth 2 -type d -name "$ARGUMENTS" 2>/dev/null
+```
+
+- **If found in `reviews/`** -> use that directory, go to step 2 (load and review).
+
+If not found in `reviews/`, check `tasks/`:
 ```bash
 find tasks/ -maxdepth 2 -type d -name "$ARGUMENTS" 2>/dev/null
 ```
 
-- **If found** -> go to step 2 (load and review).
-- **If NOT found** -> go to step 1a (create review scaffold).
+- **If found in `tasks/`** -> go to step 2 (load and review).
+- **If NOT found in either** -> go to step 1a (create review scaffold).
 
 ---
 
