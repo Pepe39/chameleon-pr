@@ -67,11 +67,15 @@ def write_inputs_md(task_dir, data):
     (task_dir / "inputs.md").write_text("\n".join(lines), encoding="utf-8")
 
 
-def run_claude(task_id, label="RUN", command="run", mode="auto"):
+DEFAULT_MODEL = "claude-opus-4-6"
+
+
+def run_claude(task_id, label="RUN", command="run", mode="auto", model=None):
     clean_env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+    model = model or DEFAULT_MODEL
     cmd = [
         "claude", "-p", f"/{command} {task_id} {mode}",
-        "--model", "claude-sonnet-4-6",
+        "--model", model,
         "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep",
     ]
     print(f"[{label}] {' '.join(cmd)}")
@@ -237,14 +241,15 @@ def run():
     (task_dir / "work").mkdir(parents=True, exist_ok=True)
     write_inputs_md(task_dir, data)
 
+    model = data.get("model")
     jobs[task_id] = {"status": "running", "error": None, "deliverables": None}
-    threading.Thread(target=_worker, args=(task_id, task_dir), daemon=True).start()
+    threading.Thread(target=_worker, args=(task_id, task_dir, model), daemon=True).start()
     return jsonify({"status": "running"})
 
 
-def _worker(task_id, task_dir):
+def _worker(task_id, task_dir, model=None):
     try:
-        ok, result = run_claude(task_id)
+        ok, result = run_claude(task_id, model=model)
         if not ok:
             jobs[task_id] = {"status": "error", "error": result.get("error"), "deliverables": None}
             return
@@ -415,15 +420,14 @@ def review():
 
     existing = find_review_dir(task_id)
 
+    model = data.get("model")
+
     if reevaluate:
         if not existing or not read_review_outputs(existing):
             return jsonify({"error": "no existing review to reevaluate"}), 400
-        # Re-run the skill in reevaluate mode: it will sanity-check the
-        # current fixed_deliverables/feedback and only rewrite them if it
-        # finds inconsistencies. Original deliverables and the diff stay.
         review_jobs.pop(task_id, None)
         review_jobs[task_id] = {"status": "running", "error": None, "result": None}
-        threading.Thread(target=_review_worker, args=(task_id, existing, "reevaluate"), daemon=True).start()
+        threading.Thread(target=_review_worker, args=(task_id, existing, "reevaluate", model), daemon=True).start()
         return jsonify({"status": "running"})
 
     # Idempotency: feedback already exists?
@@ -439,13 +443,13 @@ def review():
     write_review_workspace(review_dir, data)
 
     review_jobs[task_id] = {"status": "running", "error": None, "result": None}
-    threading.Thread(target=_review_worker, args=(task_id, review_dir), daemon=True).start()
+    threading.Thread(target=_review_worker, args=(task_id, review_dir, "auto", model), daemon=True).start()
     return jsonify({"status": "running"})
 
 
-def _review_worker(task_id, review_dir, mode="auto"):
+def _review_worker(task_id, review_dir, mode="auto", model=None):
     try:
-        ok, result = run_claude(task_id, label="REVIEW", command="review", mode=mode)
+        ok, result = run_claude(task_id, label="REVIEW", command="review", mode=mode, model=model)
         if not ok:
             review_jobs[task_id] = {"status": "error", "error": result.get("error"), "result": None}
             return
@@ -562,17 +566,18 @@ def recheck():
     elif task_dir and (task_dir / "fixed_deliverables").is_dir():
         mode = "review auto"
 
+    model = data.get("model")
     recheck_jobs[task_id] = {"status": "running", "error": None, "report": None}
     threading.Thread(
-        target=_recheck_worker, args=(task_id, mode), daemon=True
+        target=_recheck_worker, args=(task_id, mode, model), daemon=True
     ).start()
     return jsonify({"status": "running"})
 
 
-def _recheck_worker(task_id, mode):
+def _recheck_worker(task_id, mode, model=None):
     try:
         ok, result = run_claude(
-            task_id, label="RECHECK", command="step-09-recheck", mode=mode
+            task_id, label="RECHECK", command="step-09-recheck", mode=mode, model=model
         )
         if not ok:
             recheck_jobs[task_id] = {

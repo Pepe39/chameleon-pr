@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const apiUrlInput = $('apiUrl');
   const saveApiBtn = $('saveApiBtn');
   const apiStatusDot = $('apiStatusDot');
+  const modelSelect = $('modelSelect');
 
   const PLATFORM_HOST = 'annotation-platform-henna.vercel.app';
   let scrapeData = null;
@@ -48,15 +49,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ============ Config ============
-  const stored = await chrome.storage.local.get(['apiUrl']);
+  const stored = await chrome.storage.local.get(['apiUrl', 'model']);
   apiUrlInput.value = stored.apiUrl || 'http://localhost:5002';
+  modelSelect.value = stored.model || 'claude-opus-4-6';
   saveApiBtn.addEventListener('click', async () => {
     await chrome.storage.local.set({ apiUrl: apiUrlInput.value });
     checkApi();
   });
+  modelSelect.addEventListener('change', async () => {
+    await chrome.storage.local.set({ model: modelSelect.value });
+  });
   async function getApi() {
     const s = await chrome.storage.local.get(['apiUrl']);
     return s.apiUrl || 'http://localhost:5002';
+  }
+  async function getModel() {
+    const s = await chrome.storage.local.get(['model']);
+    return s.model || 'claude-opus-4-6';
   }
   async function checkApi() {
     try {
@@ -246,10 +255,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     progressText.textContent = 'Sending to API...';
     try {
       const api = await getApi();
+      const model = await getModel();
       const r = await fetch(`${api}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(scrapeData),
+        body: JSON.stringify({ ...scrapeData, model }),
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
@@ -421,10 +431,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       progressText.textContent = 'Sending to /review...';
       const api = await getApi();
+      const model = await getModel();
       const r = await fetch(`${api}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(enriched),
+        body: JSON.stringify({ ...enriched, model }),
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
@@ -527,10 +538,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       progressText.textContent = 'Sanity-checking proposed fixes...';
       const api = await getApi();
+      const model = await getModel();
       const r = await fetch(`${api}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...enriched, reevaluate: true }),
+        body: JSON.stringify({ ...enriched, reevaluate: true, model }),
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
@@ -561,10 +573,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     progressText.textContent = 'Starting recheck...';
     try {
       const api = await getApi();
+      const model = await getModel();
       const r = await fetch(`${api}/recheck`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task_id: scrapeData.task_id }),
+        body: JSON.stringify({ task_id: scrapeData.task_id, model }),
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
