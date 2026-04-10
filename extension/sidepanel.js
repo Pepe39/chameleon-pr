@@ -337,20 +337,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         target: { tabId },
         func: () => {
           // The stepper at the top of the task page has 4 steps: Annotation,
-          // New Review, QC Layer, Done. The active step's circle has Tailwind
-          // classes containing "blue-500" (bg-blue-500/15, border-blue-500,
-          // text-blue-500, ring-blue-500/20). Inactive steps use slate-*.
+          // New Review, QC Layer, Done. The active step's circle uses a
+          // colored Tailwind class (purple-500, blue-500, etc.) with a ring-2
+          // highlight. Completed steps use emerald-500. Inactive steps use
+          // slate-*. We detect the active step by looking for ring-2 on the
+          // circle, and completed steps by emerald-500.
           const STEPS = ['Annotation', 'New Review', 'QC Layer', 'Done'];
           const leaves = document.querySelectorAll('span, div, p, li, button, a');
+          let activeStep = '';
+          let lastCompleted = '';
           for (const el of leaves) {
             if (el.children.length) continue;
             const t = (el.textContent || '').trim();
             if (!STEPS.includes(t)) continue;
-            // The label sits below a sibling circle inside the same parent.
             const parent = el.parentElement;
             if (!parent) continue;
-            const html = (parent.outerHTML || '').toLowerCase();
-            if (/blue-500/.test(html)) return t;
+            const circle = parent.querySelector('.rounded-full');
+            if (!circle) continue;
+            const cls = circle.className || '';
+            // Active step has ring-2 (the focus ring)
+            if (/ring-2/.test(cls)) { activeStep = t; break; }
+            // Completed step uses emerald-500
+            if (/emerald-500/.test(cls)) lastCompleted = t;
+          }
+          // If we found an active step with ring-2, return it
+          if (activeStep) return activeStep;
+          // Fallback: return the step after the last completed one
+          if (lastCompleted) {
+            const idx = STEPS.indexOf(lastCompleted);
+            if (idx >= 0 && idx < STEPS.length - 1) return STEPS[idx + 1];
           }
           return '';
         },
