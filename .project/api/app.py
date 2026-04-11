@@ -24,6 +24,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent  # code-review/
 TASKS_DIR = PROJECT_ROOT / "tasks"
 REVIEWS_DIR = PROJECT_ROOT / "reviews"
 
+_state_lock = threading.Lock()  # guards jobs / review_jobs / recheck_jobs
 jobs = {}  # task_id -> {"status": running|done|error, "error": ..., "deliverables": ...}
 
 VARS = [
@@ -231,9 +232,11 @@ def run():
         if deliv:
             return jsonify({"status": "done", "deliverables": deliv})
 
-    # Already running?
-    if task_id in jobs and jobs[task_id]["status"] == "running":
-        return jsonify({"status": "running"})
+    # Already running? (check-and-set inside lock to avoid racing duplicates)
+    with _state_lock:
+        if task_id in jobs and jobs[task_id]["status"] == "running":
+            return jsonify({"status": "running"})
+        jobs[task_id] = {"status": "running", "error": None, "deliverables": None}
 
     # Create task dir + inputs.md
     task_dir = existing or (TASKS_DIR / date_folder() / task_id)
@@ -242,7 +245,6 @@ def run():
     write_inputs_md(task_dir, data)
 
     model = data.get("model")
-    jobs[task_id] = {"status": "running", "error": None, "deliverables": None}
     threading.Thread(target=_worker, args=(task_id, task_dir, model), daemon=True).start()
     return jsonify({"status": "running"})
 
@@ -251,20 +253,24 @@ def _worker(task_id, task_dir, model=None):
     try:
         ok, result = run_claude(task_id, model=model)
         if not ok:
-            jobs[task_id] = {"status": "error", "error": result.get("error"), "deliverables": None}
+            with _state_lock:
+                jobs[task_id] = {"status": "error", "error": result.get("error"), "deliverables": None}
             return
         deliv = read_deliverables(task_dir)
         if not deliv:
-            jobs[task_id] = {
-                "status": "error",
-                "error": "Pipeline finished but deliverables are missing or empty",
-                "deliverables": None,
-            }
+            with _state_lock:
+                jobs[task_id] = {
+                    "status": "error",
+                    "error": "Pipeline finished but deliverables are missing or empty",
+                    "deliverables": None,
+                }
             return
-        jobs[task_id] = {"status": "done", "error": None, "deliverables": deliv}
+        with _state_lock:
+            jobs[task_id] = {"status": "done", "error": None, "deliverables": deliv}
         print(f"[RUN] Done: {task_id}")
     except Exception as e:
-        jobs[task_id] = {"status": "error", "error": str(e), "deliverables": None}
+        with _state_lock:
+            jobs[task_id] = {"status": "error", "error": str(e), "deliverables": None}
         print(f"[RUN] CRASH {task_id}: {e}")
 
 
@@ -275,10 +281,12 @@ def run_status(task_id):
     if task_dir:
         deliv = read_deliverables(task_dir)
         if deliv:
-            jobs.pop(task_id, None)
+            with _state_lock:
+                jobs.pop(task_id, None)
             return jsonify({"status": "done", "deliverables": deliv})
-    if task_id in jobs:
-        job = jobs[task_id]
+    with _state_lock:
+        job = jobs.get(task_id)
+    if job:
         if job["status"] == "running":
             return jsonify({"status": "running"})
         if job["status"] == "error":
@@ -292,7 +300,8 @@ def delete_task(task_id):
     if not task_dir:
         return jsonify({"error": "not found"}), 404
     shutil.rmtree(task_dir)
-    jobs.pop(task_id, None)
+    with _state_lock:
+        jobs.pop(task_id, None)
     return jsonify({"ok": True})
 
 
@@ -425,8 +434,8 @@ def review():
     if reevaluate:
         if not existing or not read_review_outputs(existing):
             return jsonify({"error": "no existing review to reevaluate"}), 400
-        review_jobs.pop(task_id, None)
-        review_jobs[task_id] = {"status": "running", "error": None, "result": None}
+        with _state_lock:
+            review_jobs[task_id] = {"status": "running", "error": None, "result": None}
         threading.Thread(target=_review_worker, args=(task_id, existing, "reevaluate", model), daemon=True).start()
         return jsonify({"status": "running"})
 
@@ -436,13 +445,14 @@ def review():
         if out:
             return jsonify({"status": "done", **out})
 
-    if task_id in review_jobs and review_jobs[task_id]["status"] == "running":
-        return jsonify({"status": "running"})
+    with _state_lock:
+        if task_id in review_jobs and review_jobs[task_id]["status"] == "running":
+            return jsonify({"status": "running"})
+        review_jobs[task_id] = {"status": "running", "error": None, "result": None}
 
     review_dir = existing or (REVIEWS_DIR / date_folder() / task_id)
     write_review_workspace(review_dir, data)
 
-    review_jobs[task_id] = {"status": "running", "error": None, "result": None}
     threading.Thread(target=_review_worker, args=(task_id, review_dir, "auto", model), daemon=True).start()
     return jsonify({"status": "running"})
 
@@ -451,20 +461,24 @@ def _review_worker(task_id, review_dir, mode="auto", model=None):
     try:
         ok, result = run_claude(task_id, label="REVIEW", command="review", mode=mode, model=model)
         if not ok:
-            review_jobs[task_id] = {"status": "error", "error": result.get("error"), "result": None}
+            with _state_lock:
+                review_jobs[task_id] = {"status": "error", "error": result.get("error"), "result": None}
             return
         out = read_review_outputs(review_dir)
         if not out:
-            review_jobs[task_id] = {
-                "status": "error",
-                "error": "Review finished but feedback_to_cb.md is missing or empty",
-                "result": None,
-            }
+            with _state_lock:
+                review_jobs[task_id] = {
+                    "status": "error",
+                    "error": "Review finished but feedback_to_cb.md is missing or empty",
+                    "result": None,
+                }
             return
-        review_jobs[task_id] = {"status": "done", "error": None, "result": out}
+        with _state_lock:
+            review_jobs[task_id] = {"status": "done", "error": None, "result": out}
         print(f"[REVIEW] Done: {task_id}")
     except Exception as e:
-        review_jobs[task_id] = {"status": "error", "error": str(e), "result": None}
+        with _state_lock:
+            review_jobs[task_id] = {"status": "error", "error": str(e), "result": None}
         print(f"[REVIEW] CRASH {task_id}: {e}")
 
 
@@ -476,10 +490,12 @@ def review_status(task_id):
     if review_dir:
         out = read_review_outputs(review_dir)
         if out:
-            review_jobs.pop(task_id, None)
+            with _state_lock:
+                review_jobs.pop(task_id, None)
             return jsonify({"status": "done", **out})
-    if task_id in review_jobs:
-        job = review_jobs[task_id]
+    with _state_lock:
+        job = review_jobs.get(task_id)
+    if job:
         if job["status"] == "running":
             return jsonify({"status": "running"})
         if job["status"] == "error":
@@ -494,6 +510,8 @@ def state(task_id):
 
     # /run state
     run_dir = find_task_dir(task_id)
+    with _state_lock:
+        run_job_snapshot = dict(jobs[task_id]) if task_id in jobs else None
     run_block = {"present": bool(run_dir), "status": "not_found", "progress": None}
     if run_dir:
         prog = run_dir / "progress.md"
@@ -502,14 +520,14 @@ def state(task_id):
         deliv = read_deliverables(run_dir)
         if deliv:
             run_block["status"] = "done"
-        elif task_id in jobs and jobs[task_id]["status"] == "running":
+        elif run_job_snapshot and run_job_snapshot["status"] == "running":
             run_block["status"] = "running"
-        elif task_id in jobs and jobs[task_id]["status"] == "error":
+        elif run_job_snapshot and run_job_snapshot["status"] == "error":
             run_block["status"] = "error"
-            run_block["error"] = jobs[task_id]["error"]
+            run_block["error"] = run_job_snapshot["error"]
         else:
             run_block["status"] = "incomplete"
-    elif task_id in jobs and jobs[task_id]["status"] == "running":
+    elif run_job_snapshot and run_job_snapshot["status"] == "running":
         run_block["status"] = "running"
     out["run"] = run_block
 
@@ -521,6 +539,8 @@ def state(task_id):
             if cand.is_dir():
                 review_dir = cand
                 break
+    with _state_lock:
+        review_job_snapshot = dict(review_jobs[task_id]) if task_id in review_jobs else None
     review_block = {"present": bool(review_dir), "status": "not_found", "progress": None}
     if review_dir:
         rprog = review_dir / "review_progress.md"
@@ -528,14 +548,14 @@ def state(task_id):
             review_block["progress"] = rprog.read_text(encoding="utf-8")
         if (review_dir / "feedback_to_cb.md").is_file() and (review_dir / "feedback_to_cb.md").stat().st_size > 0:
             review_block["status"] = "done"
-        elif task_id in review_jobs and review_jobs[task_id]["status"] == "running":
+        elif review_job_snapshot and review_job_snapshot["status"] == "running":
             review_block["status"] = "running"
-        elif task_id in review_jobs and review_jobs[task_id]["status"] == "error":
+        elif review_job_snapshot and review_job_snapshot["status"] == "error":
             review_block["status"] = "error"
-            review_block["error"] = review_jobs[task_id]["error"]
+            review_block["error"] = review_job_snapshot["error"]
         else:
             review_block["status"] = "incomplete"
-    elif task_id in review_jobs and review_jobs[task_id]["status"] == "running":
+    elif review_job_snapshot and review_job_snapshot["status"] == "running":
         review_block["status"] = "running"
     out["review"] = review_block
 
@@ -554,8 +574,9 @@ def recheck():
     if not task_id:
         return jsonify({"error": "task_id required"}), 400
 
-    if task_id in recheck_jobs and recheck_jobs[task_id]["status"] == "running":
-        return jsonify({"status": "running"})
+    with _state_lock:
+        if task_id in recheck_jobs and recheck_jobs[task_id]["status"] == "running":
+            return jsonify({"status": "running"})
 
     # Determine mode: review-mode if fixed_deliverables/ exist, run-mode otherwise
     task_dir = find_task_dir(task_id)
@@ -567,7 +588,8 @@ def recheck():
         mode = "review auto"
 
     model = data.get("model")
-    recheck_jobs[task_id] = {"status": "running", "error": None, "report": None}
+    with _state_lock:
+        recheck_jobs[task_id] = {"status": "running", "error": None, "report": None}
     threading.Thread(
         target=_recheck_worker, args=(task_id, mode, model), daemon=True
     ).start()
@@ -580,11 +602,12 @@ def _recheck_worker(task_id, mode, model=None):
             task_id, label="RECHECK", command="step-09-recheck", mode=mode, model=model
         )
         if not ok:
-            recheck_jobs[task_id] = {
-                "status": "error",
-                "error": result.get("error"),
-                "report": None,
-            }
+            with _state_lock:
+                recheck_jobs[task_id] = {
+                    "status": "error",
+                    "error": result.get("error"),
+                    "report": None,
+                }
             return
         # Read recheck_report.md
         report = None
@@ -595,22 +618,25 @@ def _recheck_worker(task_id, mode, model=None):
         passed = bool(result.stdout and "RECHECK_PASSED" in result.stdout)
         if not passed and report:
             passed = "0 failures" in report
-        recheck_jobs[task_id] = {
-            "status": "done",
-            "error": None,
-            "report": report,
-            "passed": passed,
-        }
+        with _state_lock:
+            recheck_jobs[task_id] = {
+                "status": "done",
+                "error": None,
+                "report": report,
+                "passed": passed,
+            }
         print(f"[RECHECK] Done: {task_id} — {'PASSED' if passed else 'FAILED'}")
     except Exception as e:
-        recheck_jobs[task_id] = {"status": "error", "error": str(e), "report": None}
+        with _state_lock:
+            recheck_jobs[task_id] = {"status": "error", "error": str(e), "report": None}
         print(f"[RECHECK] CRASH {task_id}: {e}")
 
 
 @app.route("/recheck/status/<task_id>", methods=["GET"])
 def recheck_status(task_id):
-    if task_id in recheck_jobs:
-        job = recheck_jobs[task_id]
+    with _state_lock:
+        job = dict(recheck_jobs[task_id]) if task_id in recheck_jobs else None
+    if job:
         return jsonify(job)
     # Check for an existing report on disk
     for base in [find_task_dir(task_id), find_review_dir(task_id)]:
