@@ -83,10 +83,10 @@ def run_claude(task_id, label="RUN", command="run", mode="auto", model=None):
     try:
         result = subprocess.run(
             cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True,
-            timeout=900, env=clean_env,
+            timeout=1200, env=clean_env,
         )
     except subprocess.TimeoutExpired:
-        return False, {"error": f"{label} timed out (15 min)"}
+        return False, {"error": f"{label} timed out (20 min)"}
     except FileNotFoundError:
         return False, {"error": "claude CLI not found in PATH"}
     if result.returncode != 0:
