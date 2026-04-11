@@ -386,12 +386,72 @@ This is the core of the review. For each axis, independently re-derive what the 
 
 #### 4a. Re-evaluate Quality
 
-Re-read the comment body and the Comment Analysis from task_info.md. Apply the decision tree:
+Re-read the comment body and the Comment Analysis from task_info.md. Apply the **full 6-node decision tree** from `.claude/skills/step-04-label-quality/SKILL.md` Section 2. This tree is the single source of truth for quality labeling and must be applied identically in `/run` and `/review`. Do not use a shortened version.
 
-1. Is the comment factually incorrect, misunderstands code, would introduce a bug, makes a false claim -> `wrong`
-2. **Non-actionable taint check.** Scan the WHOLE body for hedges that punt discovery work back to the attempter, like `if the repo has one`, `if it exists`, `if available`, `or use the existing X if there is one`, `consider using ...`, `you may want to ...`. If ANY portion of the body contains such a hedge, the comment is `unhelpful`, regardless of how good the rest is. The attempter cannot act on a suggestion that first requires them to verify the existence of something. The reviewer is supposed to bring that context. Example: `"replace this with a proper segmented control (or use an existing accessible segmented-control/tabs component if the repo has one)"` is `unhelpful` because the parenthetical taints the actionable first half.
-3. Does it identify a genuine issue, catch a real bug, or suggest a meaningful improvement, AND is fully actionable -> `helpful`
-4. Technically correct but no practical value, pedantic, obvious, not actionable -> `unhelpful`
+```
+1. Is the comment factually incorrect?
+   Does it misunderstand the code, suggest something that would
+   introduce a bug, or make a false claim about the language/framework?
+   -> Yes: WRONG
+
+2. Does ANY part of the comment body contain a non-actionable
+   suggestion? Look for hedges like "or use an existing X if the
+   repo has one", "if it exists", "if available", "consider",
+   "you may want to", "perhaps", "maybe". A truly actionable
+   comment tells the attempter WHAT to do, it does not punt the
+   discovery work back to the reader.
+   -> Yes (any portion is non-actionable): UNHELPFUL
+   -> No: continue to 3
+
+3. Is the comment too vague or cryptic to act on without
+   investigation? A single word, a bare keyword, or a comment
+   that does not specify WHAT to change, WHERE, or HOW is not
+   actionable. The developer should not have to guess the
+   reviewer's intent or search the codebase to decode the
+   suggestion. Examples: "enum", "refactor", "types", "naming".
+   -> Yes (vague/cryptic): UNHELPFUL
+   -> No: continue to 4
+
+4. Does the comment identify a genuine issue, catch a real bug,
+   or suggest a significant improvement? Is it technically correct,
+   actionable, and adding value a competent engineer would want
+   resolved?
+   -> No (pedantic, obvious, stylistic without substance, no real
+      issue, restates what the code obviously does): UNHELPFUL
+   -> Yes: continue to 5
+
+5. If the comment offers multiple fix options, do those options
+   contradict each other, or is one significantly worse than the
+   other? The number of options itself does not matter. What
+   matters is whether the set of options guides the dev or
+   confuses them and risks leading them to a bad path.
+   -> Contradictory or uneven options: UNHELPFUL
+   -> Single option, or options that are all reasonable: continue to 6
+
+6. Does the proposed fix introduce regressions, incompatibilities,
+   or worsen overall code quality? A comment can point at a real
+   problem but propose a solution that makes things worse.
+   -> Yes: UNHELPFUL
+   -> No: HELPFUL
+```
+
+**Non-actionable suggestion rule (taint-the-whole-comment):** if even one clause inside the body is non-actionable, the whole comment is `unhelpful`, regardless of how good the rest is. Example: `"replace this with a proper segmented control (or use an existing accessible segmented-control/tabs component if the repo has one)"` is `unhelpful` because the parenthetical punts the repo lookup back to the attempter.
+
+**Common-mistake rules (mirror of step-04-label-quality Section 4, apply them all):**
+
+- Do not label `wrong` just because you disagree. `wrong` means factually false.
+- Do not label `helpful` just because it sounds reasonable or is factually correct. `helpful` requires a genuine issue, a technically correct claim, actionability, and a fix with substance.
+- The number of proposed options does not decide the label. One option and several options can both be `helpful`. What matters is whether the set guides the dev toward a good resolution.
+- Contradictory or uneven options taint the comment as `unhelpful`.
+- A good catch with a bad fix is `unhelpful`.
+- Do not couple Quality and Severity. A `wrong` comment about a critical issue is still `wrong`. A `helpful` comment about a naming nit is still `helpful`.
+- A comment that restates what the code obviously does is `unhelpful`, even if technically correct.
+- Vague or cryptic comments are `unhelpful` even if the underlying idea is correct. Correct observation plus zero specificity equals `unhelpful`.
+- Non-actionable hedges taint the whole comment.
+- Do not label `unhelpful` just because the issue is small. A correct, actionable comment with substance is `helpful` even if minor.
+- **Auto-generated files.** If `file_path` points to a generated artifact and the generator or template that produces it is also in the PR's changed files, a comment filed on the generated output targets the symptom, not the root cause. Label as `unhelpful` unless the comment explicitly and primarily addresses the generator. Detect by clues such as `docs/`, `build/`, `dist/`, `output/` paths, the PR also changing a script/template that produces the file, or a "generated by" header.
+
+**Data consistency input (from step 3 of this skill):** factor the C2 finding into the quality decision. If the problem was not found at head_sha, that pushes toward `wrong` or `unhelpful`.
 
 Record your independent label. Compare against the task's label.
 
