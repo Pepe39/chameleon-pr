@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const reviewFeedback = $('reviewFeedback');
   const statusBtn = $('statusBtn');
   const recheckBtn = $('recheckBtn');
+  const fixRecheckBtn = $('fixRecheckBtn');
   const resyncBtn = $('resyncBtn');
   const statusCard = $('statusCard');
   const statusBody = $('statusBody');
@@ -85,7 +86,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (type === 'success') setTimeout(() => statusEl.classList.add('hidden'), 4000);
   }
   function hideAll() {
-    [taskInfo, scrapePreview, runBtn, reviewBtn, fillBtn, applyFixesBtn, reevaluateBtn, recheckBtn, clearBtn, statusBtn,
+    [taskInfo, scrapePreview, runBtn, reviewBtn, fillBtn, applyFixesBtn, reevaluateBtn, recheckBtn, fixRecheckBtn, clearBtn, statusBtn,
      progress, statusEl, resultsCard, reviewCard, statusCard, wrongPage].forEach(e => e.classList.add('hidden'));
   }
 
@@ -142,6 +143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     fillBtn.classList.remove('hidden');
     clearBtn.classList.remove('hidden');
     recheckBtn.classList.remove('hidden');
+    fixRecheckBtn.classList.remove('hidden');
   }
 
   // ============ Detect & Scrape ============
@@ -431,6 +433,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Reevaluate button only makes sense in review stage
     reevaluateBtn.classList.remove('hidden');
     recheckBtn.classList.remove('hidden');
+    fixRecheckBtn.classList.remove('hidden');
   }
 
   reviewBtn.addEventListener('click', async () => {
@@ -654,6 +657,86 @@ document.addEventListener('DOMContentLoaded', async () => {
       `<div class="deliv-title">${passed ? '✅' : '❌'} Recheck ${passed ? 'Passed' : 'Failed'}</div>` +
       `<details open><summary>recheck_report.md</summary>` +
       `<pre class="deliv-text" style="white-space:pre-wrap;">${escapeHtml(report)}</pre></details>`;
+    statusCard.classList.remove('hidden');
+  }
+
+  // ============ Fix Recheck ============
+  fixRecheckBtn.addEventListener('click', async () => {
+    if (!scrapeData) return;
+    fixRecheckBtn.disabled = true;
+    fixRecheckBtn.textContent = 'Fixing...';
+    progress.classList.remove('hidden');
+    progressText.textContent = 'Starting fix-recheck...';
+    try {
+      const api = await getApi();
+      const model = await getModel();
+      const r = await fetch(`${api}/fix-recheck`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: scrapeData.task_id, model }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error || `HTTP ${r.status}`);
+      }
+      const s = await r.json();
+      if (s.status === 'done') {
+        progress.classList.add('hidden');
+        showFixRecheckResult(s);
+      } else {
+        progressText.textContent = 'Claude is applying fixes...';
+        pollFixRecheck(api, scrapeData.task_id);
+      }
+    } catch (err) {
+      progress.classList.add('hidden');
+      showStatus(err.message, 'error');
+    }
+    fixRecheckBtn.textContent = 'Fix Recheck';
+    fixRecheckBtn.disabled = false;
+  });
+
+  async function pollFixRecheck(api, tid) {
+    for (let i = 0; i < 240; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      if (scrapeData?.task_id !== tid) return;
+      progressText.textContent = `Fixing... ${i * 3}s`;
+      try {
+        const r = await fetch(`${api}/fix-recheck/status/${tid}`);
+        const s = await r.json();
+        if (s.status === 'done') {
+          progress.classList.add('hidden');
+          showFixRecheckResult(s);
+          fixRecheckBtn.textContent = 'Fix Recheck';
+          fixRecheckBtn.disabled = false;
+          return;
+        }
+        if (s.status === 'error') throw new Error(s.error || 'Fix-recheck failed');
+      } catch (err) {
+        if (err.message !== 'Failed to fetch') {
+          progress.classList.add('hidden');
+          fixRecheckBtn.textContent = 'Fix Recheck';
+          fixRecheckBtn.disabled = false;
+          showStatus(err.message, 'error');
+          return;
+        }
+      }
+    }
+    progress.classList.add('hidden');
+    fixRecheckBtn.textContent = 'Fix Recheck';
+    fixRecheckBtn.disabled = false;
+    showStatus('Fix-recheck timeout', 'error');
+  }
+
+  function showFixRecheckResult(s) {
+    const log = s.log || '(no log generated)';
+    const fixed = (s.fixed == null) ? '?' : s.fixed;
+    const overflags = (s.overflags == null) ? '?' : s.overflags;
+    const success = (s.fixed != null && s.fixed > 0) || (s.overflags != null && s.overflags > 0);
+    showStatus(`Fix-recheck done: ${fixed} fixed, ${overflags} overflags`, success ? 'success' : 'info');
+    statusBody.innerHTML =
+      `<div class="deliv-title">🛠 Fix Recheck: ${fixed} fixed, ${overflags} overflags</div>` +
+      `<details open><summary>fix_recheck_log.md</summary>` +
+      `<pre class="deliv-text" style="white-space:pre-wrap;">${escapeHtml(log)}</pre></details>`;
     statusCard.classList.remove('hidden');
   }
 

@@ -647,6 +647,114 @@ def recheck_status(task_id):
     return jsonify({"status": "not_found"})
 
 
+# ---------- Fix recheck ----------
+
+fix_jobs = {}  # task_id -> {"status", "error", "log", "fixed", "overflags"}
+
+
+def _parse_fix_done_line(stdout):
+    """Parse 'FIX_RECHECK_DONE: X fixed, Y overflags' from CLI stdout."""
+    if not stdout:
+        return None, None
+    for line in stdout.splitlines():
+        line = line.strip()
+        if line.startswith("FIX_RECHECK_DONE:"):
+            tail = line.split(":", 1)[1].strip()
+            fixed, overflags = None, None
+            for part in tail.split(","):
+                part = part.strip()
+                if part.endswith("fixed"):
+                    try:
+                        fixed = int(part.split()[0])
+                    except Exception:
+                        pass
+                elif part.endswith("overflags"):
+                    try:
+                        overflags = int(part.split()[0])
+                    except Exception:
+                        pass
+            return fixed, overflags
+    return None, None
+
+
+@app.route("/fix-recheck", methods=["POST"])
+def fix_recheck():
+    data = request.get_json(force=True) or {}
+    task_id = data.get("task_id", "").strip()
+    if not task_id:
+        return jsonify({"error": "task_id required"}), 400
+
+    with _state_lock:
+        if task_id in fix_jobs and fix_jobs[task_id]["status"] == "running":
+            return jsonify({"status": "running"})
+
+    model = data.get("model")
+    with _state_lock:
+        fix_jobs[task_id] = {
+            "status": "running", "error": None, "log": None,
+            "fixed": None, "overflags": None,
+        }
+    threading.Thread(
+        target=_fix_recheck_worker, args=(task_id, model), daemon=True
+    ).start()
+    return jsonify({"status": "running"})
+
+
+def _fix_recheck_worker(task_id, model=None):
+    try:
+        ok, result = run_claude(
+            task_id, label="FIX-RECHECK", command="fix-recheck", mode="auto", model=model
+        )
+        if not ok:
+            with _state_lock:
+                fix_jobs[task_id] = {
+                    "status": "error",
+                    "error": result.get("error"),
+                    "log": None, "fixed": None, "overflags": None,
+                }
+            return
+        # Read fix_recheck_log.md
+        log = None
+        for base in [find_task_dir(task_id), find_review_dir(task_id)]:
+            if base and (base / "fix_recheck_log.md").is_file():
+                log = (base / "fix_recheck_log.md").read_text(encoding="utf-8")
+                break
+        fixed, overflags = _parse_fix_done_line(result.stdout or "")
+        with _state_lock:
+            fix_jobs[task_id] = {
+                "status": "done",
+                "error": None,
+                "log": log,
+                "fixed": fixed,
+                "overflags": overflags,
+            }
+        print(f"[FIX-RECHECK] Done: {task_id} fixed={fixed} overflags={overflags}")
+    except Exception as e:
+        with _state_lock:
+            fix_jobs[task_id] = {
+                "status": "error", "error": str(e),
+                "log": None, "fixed": None, "overflags": None,
+            }
+        print(f"[FIX-RECHECK] CRASH {task_id}: {e}")
+
+
+@app.route("/fix-recheck/status/<task_id>", methods=["GET"])
+def fix_recheck_status(task_id):
+    with _state_lock:
+        job = dict(fix_jobs[task_id]) if task_id in fix_jobs else None
+    if job:
+        return jsonify(job)
+    # Fall back to disk
+    for base in [find_task_dir(task_id), find_review_dir(task_id)]:
+        if base and (base / "fix_recheck_log.md").is_file():
+            log = (base / "fix_recheck_log.md").read_text(encoding="utf-8")
+            return jsonify({
+                "status": "done", "log": log,
+                "fixed": None, "overflags": None,
+            })
+    return jsonify({"status": "not_found"})
+
+
 if __name__ == "__main__":
     print(f"PROJECT_ROOT: {PROJECT_ROOT}")
     print(f"TASKS_DIR:    {TASKS_DIR}")
