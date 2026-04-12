@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   async function pollReview(api, tid) {
-    for (let i = 0; i < 240; i++) {
+    for (let i = 0; i < 400; i++) {
       await new Promise(r => setTimeout(r, 3000));
       if (scrapeData?.task_id !== tid) return;
       progressText.textContent = `Reviewing... ${i * 3}s`;
