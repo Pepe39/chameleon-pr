@@ -188,20 +188,20 @@ Confirm when ready to continue.
 
    ```bash
    rm -rf "reviews/{date}/$ARGUMENTS/work/repo"
+   # IMPORTANT: Use git -C to avoid changing the working directory.
+   # Do NOT cd into the repo dir — see step-02 for rationale.
    git init "reviews/{date}/$ARGUMENTS/work/repo"
-   cd "reviews/{date}/$ARGUMENTS/work/repo"
-   git remote add origin "https://github.com/{nwo}.git"
-   git fetch --depth=1 origin {head_sha}
-   git checkout FETCH_HEAD
+   git -C "reviews/{date}/$ARGUMENTS/work/repo" remote add origin "https://github.com/{nwo}.git"
+   git -C "reviews/{date}/$ARGUMENTS/work/repo" fetch --depth=1 origin {head_sha}
+   git -C "reviews/{date}/$ARGUMENTS/work/repo" checkout FETCH_HEAD
    ```
 
    **Verify SHA after checkout:**
    ```bash
-   ACTUAL_SHA=$(git rev-parse HEAD)
+   ACTUAL_SHA=$(git -C "reviews/{date}/$ARGUMENTS/work/repo" rev-parse HEAD)
    if [ "$ACTUAL_SHA" != "{head_sha}" ]; then
      echo "SHA MISMATCH: expected {head_sha}, got $ACTUAL_SHA"
    fi
-   cd -
    ```
 
    Record result in task_info.md (same as step-02: `OK - verified at {head_sha}` / `SHA MISMATCH` / `FAILED`).
@@ -235,16 +235,17 @@ The review needs local repo access for data consistency verification and context
 Extract `nwo` and `head_sha` from `task_info.md`, then clone:
 
 ```bash
+# IMPORTANT: Use git -C to avoid changing the working directory.
+# Do NOT cd into the repo dir — see step-02 for rationale.
 git init "{task_dir}/work/repo"
-cd "{task_dir}/work/repo"
-git remote add origin "https://github.com/{nwo}.git"
-git fetch --depth=1 origin {head_sha}
-git checkout FETCH_HEAD
+git -C "{task_dir}/work/repo" remote add origin "https://github.com/{nwo}.git"
+git -C "{task_dir}/work/repo" fetch --depth=1 origin {head_sha}
+git -C "{task_dir}/work/repo" checkout FETCH_HEAD
 ```
 
 **Verify SHA after checkout:**
 ```bash
-ACTUAL_SHA=$(git rev-parse HEAD)
+ACTUAL_SHA=$(git -C "{task_dir}/work/repo" rev-parse HEAD)
 if [ "$ACTUAL_SHA" != "{head_sha}" ]; then
   echo "SHA MISMATCH: expected {head_sha}, got $ACTUAL_SHA"
 fi

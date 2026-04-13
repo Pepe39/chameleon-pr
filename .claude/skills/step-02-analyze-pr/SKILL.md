@@ -71,21 +71,23 @@ Clone the repository to enable local file browsing in subsequent steps (per the 
 rm -rf "tasks/{date}/{id}/work/repo"
 
 # Shallow clone of the exact commit
+# IMPORTANT: Use git -C to avoid changing the working directory.
+# Do NOT cd into the repo dir — cd does not persist across Bash tool
+# calls and subsequent git commands would run in the project root,
+# overwriting the project's own remote.
 git init "tasks/{date}/{id}/work/repo"
-cd "tasks/{date}/{id}/work/repo"
-git remote add origin "https://github.com/{nwo}.git"
-git fetch --depth=1 origin {head_sha}
-git checkout FETCH_HEAD
+git -C "tasks/{date}/{id}/work/repo" remote add origin "https://github.com/{nwo}.git"
+git -C "tasks/{date}/{id}/work/repo" fetch --depth=1 origin {head_sha}
+git -C "tasks/{date}/{id}/work/repo" checkout FETCH_HEAD
 ```
 
 **After checkout, verify the commit matches head_sha:**
 
 ```bash
-ACTUAL_SHA=$(git rev-parse HEAD)
+ACTUAL_SHA=$(git -C "tasks/{date}/{id}/work/repo" rev-parse HEAD)
 if [ "$ACTUAL_SHA" != "{head_sha}" ]; then
   echo "SHA MISMATCH: expected {head_sha}, got $ACTUAL_SHA"
 fi
-cd -
 ```
 
 **Verification outcomes:**
