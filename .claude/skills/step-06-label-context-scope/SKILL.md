@@ -82,7 +82,7 @@ Document in 2-3 sentences:
 
 ### 6. Verify diff_line accuracy
 
-Before writing any context entry, verify each `diff_line` value against the actual file content fetched at head_sha:
+Before writing any context entry, verify each `diff_line` value against the actual file content in the repo clone (at `comment_commit`, or `head_sha` as fallback):
 
 1. For each context entry, confirm the line number points to the actual code referenced, not an adjacent blank line, comment, or closing brace.
 2. If the entry references a range (e.g., "207-215"), confirm the range starts and ends at the correct boundaries of the relevant code block (function definition, statement, etc.).

@@ -75,8 +75,11 @@ grep -rn "import.*ModuleName" "tasks/{date}/{id}/work/repo/"
 ```
 
 **Fallback (if clone failed or work/repo/ does not exist):**
+
+Use `comment_commit` from the task_info.md "Comment Commit" field. If that field is missing or says "(populated after step 02)", fall back to `head_sha`.
+
 ```bash
-gh api repos/{nwo}/contents/{file_path}?ref={head_sha} --jq '.content' | base64 -d
+gh api repos/{nwo}/contents/{file_path}?ref={comment_commit} --jq '.content' | base64 -d
 ```
 
 Document what files you consulted and why.
@@ -118,11 +121,14 @@ Before updating task_info.md, verify that the task inputs are internally consist
 - Is the comment (body) relevant to the changes in this PR?
 - If the comment seems unrelated to the PR's purpose, flag it but continue (the comment may be wrong or unhelpful).
 
-**6b. Verify the head_sha contains the problem**
-- At head_sha, does the code exhibit the issue described in the comment?
-- If YES: record "Problem confirmed at head_sha."
-- If NO (the problem does not exist at head_sha): record this finding. This is critical context for labeling; it may mean the comment is **wrong** (claims something that is not true) or **unhelpful** (the issue was already fixed before the comment was made). Do not assume wrong automatically; analyze why the mismatch exists.
-- If the code at head_sha has ALREADY been fixed (e.g., a later commit addressed the issue before the comment): record "Problem not present at head_sha; may have been fixed in a subsequent commit."
+**6b. Verify the comment_commit contains the problem**
+
+Use `comment_commit` from `task_info.md` (the exact commit the reviewer commented on). If `comment_commit` is not available, fall back to `head_sha`.
+
+- At `comment_commit`, does the code exhibit the issue described in the comment?
+- If YES: record "Problem confirmed at comment_commit ({comment_commit})."
+- If NO (the problem does not exist at comment_commit): record this finding. This is critical context for labeling; it may mean the comment is **wrong** (claims something that is not true) or **unhelpful** (the issue was already fixed before the comment was made). Do not assume wrong automatically; analyze why the mismatch exists.
+- If the code at comment_commit has ALREADY been fixed (e.g., a later commit addressed the issue before the comment): record "Problem not present at comment_commit; may have been fixed in a subsequent commit."
 
 **6c. Verify the PR resolves what it claims**
 - Does the PR (title, description, changes) address what it claims to address?
@@ -136,7 +142,7 @@ Add a consistency section to the analysis:
 ```markdown
 ### Data Consistency
 - **PR matches comment:** Yes/No - {brief explanation}
-- **Problem at head_sha:** Confirmed/Not found/Already fixed - {brief explanation}
+- **Problem at comment_commit:** Confirmed/Not found/Already fixed - {brief explanation}
 - **PR resolves its claims:** Yes/Partially/No - {brief explanation}
 ```
 
@@ -162,7 +168,7 @@ Add to the Analysis section:
 
 ### Data Consistency
 - **PR matches comment:** Yes/No — {brief explanation}
-- **Problem at head_sha:** Confirmed/Not found/Already fixed — {brief explanation}
+- **Problem at comment_commit:** Confirmed/Not found/Already fixed — {brief explanation}
 - **PR resolves its claims:** Yes/Partially/No — {brief explanation}
 ```
 

@@ -59,6 +59,7 @@ Step 01 completed: {timestamp}
 - **PR URL:** {pull_request_url}
 - **Repository:** {nwo}
 - **Head SHA:** {head_sha}
+- **Comment Commit:** (populated after step 02)
 - **Comment ID:** {comment_id}
 - **File Path:** {file_path}
 - **Diff Line:** {diff_line}

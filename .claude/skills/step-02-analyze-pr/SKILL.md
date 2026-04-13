@@ -20,7 +20,22 @@ Find the task directory and read `task_info.md` to get PR URL, nwo, head_sha, fi
 
 Update `progress.md`: step 02 status = "in-progress", Started = {timestamp ISO 8601}.
 
-### 2. Fetch PR information
+### 2. Resolve comment_commit
+
+The `head_sha` from the task inputs is the tip of the PR branch, but the review comment may have been made on an earlier commit within the PR. Use the GitHub API to resolve the exact commit the comment was anchored to.
+
+```bash
+gh api repos/{nwo}/pulls/comments/{comment_id} --jq '.original_commit_id'
+```
+
+- Save the result as `comment_commit`.
+- If the call fails (404, auth error, network), fall back to `head_sha` and add a warning to `task_info.md`:
+  > **Warning:** Could not resolve comment_commit from GitHub API. Using head_sha as fallback. The repo clone may not reflect the exact code state when the comment was made.
+- Update `task_info.md` Input Data section: set `**Comment Commit:**` to the resolved value.
+
+The pipeline uses `comment_commit` (not `head_sha`) for cloning the repo and verifying whether the problem exists. `head_sha` is still used for the PR diff (section 3) because the diff should reflect the full PR scope.
+
+### 3. Fetch PR information
 
 Use `gh` CLI to get PR details:
 
@@ -62,31 +77,33 @@ From the diff, extract the section relevant to `file_path` and `diff_line`:
 - The diff hunk containing the comment's target line
 - Surrounding context (the full file diff, not just the hunk)
 
-### 5. Clone repository at head_sha
+### 5. Clone repository at comment_commit
 
-Clone the repository to enable local file browsing in subsequent steps (per the labeling instructions, Step 3: Browse the repository).
+Clone the repository at the exact commit the reviewer commented on, so that subsequent steps see the code as it was when the comment was made.
+
+Use `comment_commit` (resolved in section 2). If `comment_commit` could not be resolved and fell back to `head_sha`, use that value instead.
 
 ```bash
 # Ensure clean state (handles interrupted reruns)
 rm -rf "tasks/{date}/{id}/work/repo"
 
-# Shallow clone of the exact commit
+# Shallow clone of the exact commit the comment was made on
 # IMPORTANT: Use git -C to avoid changing the working directory.
 # Do NOT cd into the repo dir — cd does not persist across Bash tool
 # calls and subsequent git commands would run in the project root,
 # overwriting the project's own remote.
 git init "tasks/{date}/{id}/work/repo"
 git -C "tasks/{date}/{id}/work/repo" remote add origin "https://github.com/{nwo}.git"
-git -C "tasks/{date}/{id}/work/repo" fetch --depth=1 origin {head_sha}
+git -C "tasks/{date}/{id}/work/repo" fetch --depth=1 origin {comment_commit}
 git -C "tasks/{date}/{id}/work/repo" checkout FETCH_HEAD
 ```
 
-**After checkout, verify the commit matches head_sha:**
+**After checkout, verify the commit matches comment_commit:**
 
 ```bash
 ACTUAL_SHA=$(git -C "tasks/{date}/{id}/work/repo" rev-parse HEAD)
-if [ "$ACTUAL_SHA" != "{head_sha}" ]; then
-  echo "SHA MISMATCH: expected {head_sha}, got $ACTUAL_SHA"
+if [ "$ACTUAL_SHA" != "{comment_commit}" ]; then
+  echo "SHA MISMATCH: expected {comment_commit}, got $ACTUAL_SHA"
 fi
 ```
 
@@ -97,13 +114,13 @@ fi
    - Do NOT stop the pipeline. Steps 03+ will fall back to the `gh api contents` method.
    - Continue to the next section.
 
-2. **Clone succeeds but SHA does not match head_sha:**
-   - Log in task_info.md: `- **Repo Clone:** SHA MISMATCH — expected {head_sha}, got {actual_sha}`
-   - **Flag to the user:** "The cloned repo is NOT at the expected commit. File browsing results may not match the PR state when the comment was made. Proceed with caution or verify manually."
+2. **Clone succeeds but SHA does not match comment_commit:**
+   - Log in task_info.md: `- **Repo Clone:** SHA MISMATCH — expected {comment_commit}, got {actual_sha}`
+   - **Flag to the user:** "The cloned repo is NOT at the expected commit. File browsing results may not match the code state when the comment was made. Proceed with caution or verify manually."
    - Do NOT stop the pipeline, but this warning must be carried forward into the analysis. Steps 03+ should cross-check any file content against the diff to detect inconsistencies.
 
 3. **Clone succeeds and SHA matches:**
-   - Log in task_info.md: `- **Repo Clone:** OK — work/repo/ (verified at {head_sha})`
+   - Log in task_info.md: `- **Repo Clone:** OK — work/repo/ (verified at {comment_commit})`
 
 ### 6. Update task_info.md
 
@@ -116,7 +133,8 @@ Add analysis section:
 - **PR Title:** {title}
 - **PR Description:** {description summary — 1-2 sentences}
 - **Files Changed:** {N} files, +{additions} -{deletions}
-- **Repo Clone:** OK — work/repo/ (verified at {head_sha}) | SHA MISMATCH | FAILED
+- **Comment Commit:** {comment_commit} (resolved from original_commit_id) | fallback to head_sha
+- **Repo Clone:** OK — work/repo/ (verified at {comment_commit}) | SHA MISMATCH | FAILED
 - **Changed Files List:**
   - {file1}
   - {file2}

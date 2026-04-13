@@ -19,7 +19,7 @@ back to the caller.
 ## Mode semantics
 
 - **run-mode** (default): validates `tasks/{date}/{id}/deliverables/` (produced
-  by step-08). Baseline = the repo clone at `head_sha` and `task_info.md`.
+  by step-08). Baseline = the repo clone at `comment_commit` (or `head_sha` fallback) and `task_info.md`.
 - **review-mode** (`review` token present): validates
   `tasks/{date}/{id}/fixed_deliverables/` using `deliverables/` + `task_info.md`
   + the repo clone as baseline.
@@ -38,7 +38,7 @@ back to the caller.
    - `work/pr_diff.txt`
    - In review-mode, also load every file under `fixed_deliverables/` that
      exists. Axes without a fixed file inherit from `deliverables/`.
-3. Ensure the repo clone at `work/repo/` is present and on `head_sha`. If it
+3. Ensure the repo clone at `work/repo/` is present and at `comment_commit` (read from `task_info.md` "Comment Commit" field; fall back to `head_sha` if missing). If it
    does not exist, re-clone per step-02 instructions. If SHA does not match,
    delete and re-clone. Record the result in the report.
 
@@ -74,9 +74,9 @@ For each entry in `labels.json.context`:
 
 | id | Check |
 |---|---|
-| P1 | `file_path` exists in the repo clone: `test -f "work/repo/{file_path}"`. **New-file tolerance:** if the file does NOT exist at head_sha but IS listed as NEW (e.g., `(NEW, +N)`) in the Changed Files List inside `task_info.md`, report as `warn` instead of `fail`. This happens when the comment was made on an intermediate commit that added the file, but head_sha predates it. |
-| P2 | If `diff_line` is non-empty, parse it. Accept a single integer (`246`), a range (`65-116`), or a comma list (`12,34-40`). Every parsed line number must be within the file's line count (`wc -l work/repo/{file_path}`). If P1 was a `warn` (file NEW but missing at head_sha), cascade this check as `warn` too. |
-| P3 | If `diff_line` is non-empty, the referenced line(s) must be non-blank in the file. Read with `sed -n '{n}p'` and verify the content is not whitespace-only. If P1 was a `warn` (file NEW but missing at head_sha), cascade this check as `warn` too. |
+| P1 | `file_path` exists in the repo clone: `test -f "work/repo/{file_path}"`. **New-file tolerance:** if the file does NOT exist at `comment_commit` but IS listed as NEW (e.g., `(NEW, +N)`) in the Changed Files List inside `task_info.md`, report as `warn` instead of `fail`. This can happen when the comment was made on a commit that predates the file being added. |
+| P2 | If `diff_line` is non-empty, parse it. Accept a single integer (`246`), a range (`65-116`), or a comma list (`12,34-40`). Every parsed line number must be within the file's line count (`wc -l work/repo/{file_path}`). If P1 was a `warn` (file NEW but missing at `comment_commit`), cascade this check as `warn` too. |
+| P3 | If `diff_line` is non-empty, the referenced line(s) must be non-blank in the file. Read with `sed -n '{n}p'` and verify the content is not whitespace-only. If P1 was a `warn` (file NEW but missing at `comment_commit`), cascade this check as `warn` too. |
 | P4 | If `diff_line` is non-empty, verify the line is covered by a hunk in `work/pr_diff.txt` for that `file_path`. Use the `@@ -x,y +a,b @@` headers to compute the set of line numbers present in the new file, then check membership. If the file is new in the PR, all added lines count. **Tolerance:** if the line falls within ±5 lines of a hunk boundary but is not inside any hunk, report as `warn` instead of `fail`. This accounts for outdated comments where the PR was updated after the comment was posted, shifting line numbers slightly. |
 | P5 | If the `why` field references a specific symbol (function, class, or variable name in backticks), at least one of those symbols must appear in the file at or near the referenced line(s). Use `grep -n` within a +/- 5 line window around each referenced line. This is a soft check: report as `warn` instead of `fail` if no match is found, but still record it. |
 
@@ -87,7 +87,7 @@ For each entry in `labels.json.context`:
 | C1 | The `body` field in `task_info.md` Input Data equals the `body` in `inputs.md` (after normalizing whitespace). |
 | C2 | The `file_path` and `diff_line` in `task_info.md` Input Data match what `inputs.md` declared. |
 | C3 | If any reasoning field contains a quoted phrase in double quotes that looks like it came from the comment (length >= 8 words), that substring must exist in `task_info.md`'s Review Comment block. |
-| C4 | `task_info.md`'s "Problem at head_sha" assessment is present. If it says "Not found" and `quality != wrong` and `quality != unhelpful`, flag as `fail` with a note asking for reconciliation. **Exception:** if the assessment says "Not applicable" and `task_info.md` explains that the file does not exist at head_sha because it was added in a different commit on the PR branch, report as `warn` instead of `fail`. The comment may still be helpful if it was made on an intermediate commit where the file existed. |
+| C4 | `task_info.md`'s "Problem at comment_commit" (or legacy "Problem at head_sha") assessment is present. If it says "Not found" and `quality != wrong` and `quality != unhelpful`, flag as `fail` with a note asking for reconciliation. **Exception:** if the assessment says "Not applicable" and `task_info.md` explains that the file does not exist at `comment_commit` because it was added in a different commit on the PR branch, report as `warn` instead of `fail`. The comment may still be helpful if it was made on an intermediate commit where the file existed. |
 
 ### W - Wording rules (ZERO tolerance)
 

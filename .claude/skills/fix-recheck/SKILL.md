@@ -45,7 +45,7 @@ The report's `## Failures` section contains one bullet per failure in the form
 - **F1-F3** file integrity (deliverables missing or malformed)
 - **L1-L7** label value validation (quality, severity, scope, advanced,
   context array shape)
-- **P1-P5** path and line validation (file exists at head_sha, line non-blank,
+- **P1-P5** path and line validation (file exists at comment_commit, line non-blank,
   line inside a hunk, etc.)
 - **C1-C4** comment and context consistency (inputs alignment, body match,
   reconciliation with PR state)
@@ -88,7 +88,7 @@ not actually wrong in context. Typical overflags:
 - P5 when the `why` field references a symbol in prose without backticks and
   the check misreads a quoted identifier.
 - Any check whose detail message explicitly contradicts the observable state
-  of the file at head_sha.
+  of the file at comment_commit (or head_sha for older tasks).
 
 When in doubt, err toward **real** and apply a safe fix. Only leave a failure
 untouched when fixing it would require guessing or would regress correctness.

@@ -44,7 +44,7 @@ Every review run (interactive or auto) MUST maintain a `review_progress.md` file
 | # | Phase | Status | Started | Completed |
 |---|------|--------|---------|-----------|
 | 01 | Locate task / load deliverables | pending | | |
-| 02 | Repo clone (head_sha)             | pending | | |
+| 02 | Repo clone (comment_commit)       | pending | | |
 | 03 | Data consistency (C0-C3)          | pending | | |
 | 04 | Content validation (V1-V5)        | pending | | |
 | 05 | Reasoning validation (R1-R5)      | pending | | |
@@ -71,7 +71,7 @@ Phase-to-section mapping (so you know which phase you are in while reading the i
 | Phase | Section in this file |
 |---|---|
 | 01 Locate task / load deliverables | Sections 1, 1a, 2 (excluding 2b) |
-| 02 Repo clone (head_sha)            | Section 2b |
+| 02 Repo clone (comment_commit)      | Section 2b |
 | 03 Data consistency (C0-C3)         | Section 3 |
 | 04 Content validation (V1-V5)       | Section 4 |
 | 05 Reasoning validation (R1-R5)     | Section 5 |
@@ -184,27 +184,34 @@ Confirm when ready to continue.
    - Saving diff to `reviews/{date}/$ARGUMENTS/work/pr_diff.txt`
    - Running comment analysis (same as step-03-analyze-comment) to populate Comment Analysis
 
-9. Clone the repository at head_sha (same as step-02-analyze-pr section 5):
+9. Resolve `comment_commit` and clone the repository (same as step-02-analyze-pr sections 2 and 5):
 
+   First, resolve the exact commit the comment was anchored to:
+   ```bash
+   gh api repos/{nwo}/pulls/comments/{comment_id} --jq '.original_commit_id'
+   ```
+   Save the result as `comment_commit` in `task_info.md`. If the call fails, fall back to `head_sha` and log a warning.
+
+   Then clone at `comment_commit`:
    ```bash
    rm -rf "reviews/{date}/$ARGUMENTS/work/repo"
    # IMPORTANT: Use git -C to avoid changing the working directory.
    # Do NOT cd into the repo dir — see step-02 for rationale.
    git init "reviews/{date}/$ARGUMENTS/work/repo"
    git -C "reviews/{date}/$ARGUMENTS/work/repo" remote add origin "https://github.com/{nwo}.git"
-   git -C "reviews/{date}/$ARGUMENTS/work/repo" fetch --depth=1 origin {head_sha}
+   git -C "reviews/{date}/$ARGUMENTS/work/repo" fetch --depth=1 origin {comment_commit}
    git -C "reviews/{date}/$ARGUMENTS/work/repo" checkout FETCH_HEAD
    ```
 
    **Verify SHA after checkout:**
    ```bash
    ACTUAL_SHA=$(git -C "reviews/{date}/$ARGUMENTS/work/repo" rev-parse HEAD)
-   if [ "$ACTUAL_SHA" != "{head_sha}" ]; then
-     echo "SHA MISMATCH: expected {head_sha}, got $ACTUAL_SHA"
+   if [ "$ACTUAL_SHA" != "{comment_commit}" ]; then
+     echo "SHA MISMATCH: expected {comment_commit}, got $ACTUAL_SHA"
    fi
    ```
 
-   Record result in task_info.md (same as step-02: `OK - verified at {head_sha}` / `SHA MISMATCH` / `FAILED`).
+   Record result in task_info.md (same as step-02: `OK - verified at {comment_commit}` / `SHA MISMATCH` / `FAILED`).
 
 10. Continue to step 2, using the `reviews/{date}/$ARGUMENTS/` path as the task directory.
 
@@ -230,24 +237,26 @@ If any deliverable file is missing or empty, report which ones and STOP.
 
 The review needs local repo access for data consistency verification and context_scope re-evaluation. Check if `work/repo/` exists in the task directory.
 
+Extract `comment_commit` from `task_info.md` (the "Comment Commit" field). If the field is missing or says "(populated after step 02)", fall back to `head_sha`. This ensures compatibility with tasks created before this field was added.
+
 **If `work/repo/` does NOT exist** (cleaned up after task completion, or task was run before clone was added):
 
-Extract `nwo` and `head_sha` from `task_info.md`, then clone:
+Extract `nwo` and `comment_commit` (or `head_sha` fallback) from `task_info.md`, then clone:
 
 ```bash
 # IMPORTANT: Use git -C to avoid changing the working directory.
 # Do NOT cd into the repo dir — see step-02 for rationale.
 git init "{task_dir}/work/repo"
 git -C "{task_dir}/work/repo" remote add origin "https://github.com/{nwo}.git"
-git -C "{task_dir}/work/repo" fetch --depth=1 origin {head_sha}
+git -C "{task_dir}/work/repo" fetch --depth=1 origin {comment_commit}
 git -C "{task_dir}/work/repo" checkout FETCH_HEAD
 ```
 
 **Verify SHA after checkout:**
 ```bash
 ACTUAL_SHA=$(git -C "{task_dir}/work/repo" rev-parse HEAD)
-if [ "$ACTUAL_SHA" != "{head_sha}" ]; then
-  echo "SHA MISMATCH: expected {head_sha}, got $ACTUAL_SHA"
+if [ "$ACTUAL_SHA" != "{comment_commit}" ]; then
+  echo "SHA MISMATCH: expected {comment_commit}, got $ACTUAL_SHA"
 fi
 cd -
 ```
@@ -260,7 +269,7 @@ cd "{task_dir}/work/repo"
 ACTUAL_SHA=$(git rev-parse HEAD)
 cd -
 ```
-If it does not match `head_sha`, delete and re-clone.
+If it does not match `comment_commit`, delete and re-clone.
 
 #### 2a. Parse platform format
 
@@ -329,14 +338,15 @@ Normalize **all** labels to lowercase for comparison, including advanced (e.g., 
 Before re-evaluating the axis labels, verify that the task data is internally consistent using the local repo clone from step 2b.
 
 #### 3a. Verify repo clone integrity (C0)
-- Confirm `work/repo/` exists and is at the correct `head_sha`:
+- Extract `comment_commit` from `task_info.md` (the "Comment Commit" field). If missing, fall back to `head_sha`.
+- Confirm `work/repo/` exists and is at the correct `comment_commit`:
   ```bash
   cd "{task_dir}/work/repo"
   ACTUAL_SHA=$(git rev-parse HEAD)
   cd -
   ```
-- If SHA matches: record `C0: PASS (verified at {head_sha})`
-- If SHA does not match: record `C0: SHA MISMATCH (expected {head_sha}, got {actual_sha})`. All subsequent file reads from the clone must be cross-checked against the diff.
+- If SHA matches: record `C0: PASS (verified at {comment_commit})`
+- If SHA does not match: record `C0: SHA MISMATCH (expected {comment_commit}, got {actual_sha})`. All subsequent file reads from the clone must be cross-checked against the diff.
 - If clone does not exist and cannot be created: record `C0: FAILED (no local clone)`. Fall back to `gh api` for all file reads.
 
 #### 3b. Verify the PR matches the comment (C1)
@@ -345,16 +355,16 @@ Before re-evaluating the axis labels, verify that the task data is internally co
 - Is the comment (body) relevant to the changes in this PR?
 - If the comment seems unrelated to the PR, flag it.
 
-#### 3c. Verify the head_sha contains the problem (C2)
+#### 3c. Verify the comment_commit contains the problem (C2)
 - Read the target file from the local clone:
   ```bash
   cat "{task_dir}/work/repo/{file_path}"
   ```
-  (Fallback if clone unavailable: `gh api "repos/{nwo}/contents/{file_path}?ref={head_sha}" --jq '.content' | base64 -d`)
-- At head_sha, does the code exhibit the issue described in the comment?
-- If YES: record "Problem confirmed at head_sha."
+  (Fallback if clone unavailable: `gh api "repos/{nwo}/contents/{file_path}?ref={comment_commit}" --jq '.content' | base64 -d`)
+- At comment_commit, does the code exhibit the issue described in the comment?
+- If YES: record "Problem confirmed at comment_commit."
 - If NO: record this finding. This is critical; it may mean the comment is **wrong** or **unhelpful**. Do not assume automatically; analyze why.
-- If already fixed at head_sha: record "Problem not present at head_sha; may have been fixed before the comment."
+- If already fixed at comment_commit: record "Problem not present at comment_commit; may have been fixed before the comment."
 - **If the comment references code outside the target file** (imports, base classes, shared utilities), use the local clone to grep/read those files and verify the claims.
 
 #### 3d. Verify the PR resolves what it claims (C3)
@@ -365,13 +375,13 @@ Before re-evaluating the axis labels, verify that the task data is internally co
 
 | # | Check | Rule |
 |---|---|---|
-| C0 | Repo clone verified at head_sha | SHA MISMATCH = warn, all file reads cross-checked against diff |
+| C0 | Repo clone verified at comment_commit | SHA MISMATCH = warn, all file reads cross-checked against diff |
 | C1 | PR contains file_path in its changed files | Critical mismatch if no |
-| C2 | Problem exists at head_sha | If not found, flag for quality label impact |
+| C2 | Problem exists at comment_commit | If not found, flag for quality label impact |
 | C3 | PR resolves its stated claims | Informational; discrepancies noted |
 
 **If C1 fails** (file not in PR): report to the user and STOP.
-**If C2 fails** (problem not at head_sha): continue but factor this into the quality re-evaluation. A comment claiming an issue that does not exist at head_sha is likely wrong or unhelpful.
+**If C2 fails** (problem not at comment_commit): continue but factor this into the quality re-evaluation. A comment claiming an issue that does not exist at comment_commit is likely wrong or unhelpful.
 
 ---
 
@@ -381,7 +391,7 @@ This is the core of the review. For each axis, independently re-derive what the 
 
 **IMPORTANT:** Use the axis definitions from `docs/axis-1-quality.md`, `docs/axis-2-severity.md`, `docs/axis-3-context-scope.md`, and `docs/axis-4-advanced.md` as your evaluation criteria. Also consult `DOCUMENTATION.md` sections 8 (FAQ), 9 (Common Mistakes), and 10 (Tips) for edge cases and pitfalls. Read them if needed.
 
-**IMPORTANT:** Factor in the data consistency findings from step 3. If the problem was not found at head_sha, this must influence your quality assessment.
+**IMPORTANT:** Factor in the data consistency findings from step 3. If the problem was not found at comment_commit, this must influence your quality assessment.
 
 ---
 
@@ -452,7 +462,7 @@ Re-read the comment body and the Comment Analysis from task_info.md. Apply the *
 - Do not label `unhelpful` just because the issue is small. A correct, actionable comment with substance is `helpful` even if minor.
 - **Auto-generated files.** If `file_path` points to a generated artifact and the generator or template that produces it is also in the PR's changed files, a comment filed on the generated output targets the symptom, not the root cause. Label as `unhelpful` unless the comment explicitly and primarily addresses the generator. Detect by clues such as `docs/`, `build/`, `dist/`, `output/` paths, the PR also changing a script/template that produces the file, or a "generated by" header.
 
-**Data consistency input (from step 3 of this skill):** factor the C2 finding into the quality decision. If the problem was not found at head_sha, that pushes toward `wrong` or `unhelpful`.
+**Data consistency input (from step 3 of this skill):** factor the C2 finding into the quality decision. If the problem was not found at comment_commit, that pushes toward `wrong` or `unhelpful`.
 
 Record your independent label. Compare against the task's label.
 
@@ -599,9 +609,9 @@ Display in this format:
 == Review: {id} ==
 
 DATA CONSISTENCY
-  C0  Repo clone at head_sha ..... PASS / SHA MISMATCH / FAILED
+  C0  Repo clone at comment_commit  PASS / SHA MISMATCH / FAILED
   C1  PR contains file_path ...... PASS / FAIL
-  C2  Problem at head_sha ........ Confirmed / Not found / Already fixed
+  C2  Problem at comment_commit .. Confirmed / Not found / Already fixed
   C3  PR resolves its claims ..... Yes / Partially / No
 
 CONTENT VALIDATION (axis re-evaluation)
