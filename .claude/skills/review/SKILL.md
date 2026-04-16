@@ -389,7 +389,7 @@ Before re-evaluating the axis labels, verify that the task data is internally co
 
 This is the core of the review. For each axis, independently re-derive what the label should be using the original evidence (comment body, diff, comment analysis). Then compare your independent assessment against the task's label.
 
-**IMPORTANT:** Use the axis definitions from `docs/axis-1-quality.md`, `docs/axis-2-severity.md`, `docs/axis-3-context-scope.md`, and `docs/axis-4-advanced.md` as your evaluation criteria. Also consult `DOCUMENTATION.md` sections 8 (FAQ), 9 (Common Mistakes), and 10 (Tips) for edge cases and pitfalls. Read them if needed.
+**IMPORTANT:** Use the axis definitions from `docs/axis-1-quality.md`, `docs/axis-2-severity.md`, `docs/axis-3-context-scope.md`, and `docs/axis-4-advanced.md` as your evaluation criteria. Also consult `DOCUMENTATION.md` sections 9 (FAQ), 10 (Common Mistakes), and 11 (Tips) for edge cases and pitfalls. Read them if needed.
 
 **IMPORTANT:** Factor in the data consistency findings from step 3. If the problem was not found at comment_commit, this must influence your quality assessment.
 

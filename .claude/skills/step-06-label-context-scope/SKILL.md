@@ -9,7 +9,7 @@ Labels Axis 3 — Context Scope. Determines what level of context a reviewer wou
 ## Context
 > See `docs/axis-3-context-scope.md` for definitions, evaluation criteria, and examples.
 > See `docs/steps/step8.md` for the step-by-step process.
-> See `DOCUMENTATION.md` sections 8 (FAQ), 9 (Common Mistakes), and 10 (Tips) for edge cases and pitfalls.
+> See `DOCUMENTATION.md` sections 9 (FAQ), 10 (Common Mistakes), and 11 (Tips) for edge cases and pitfalls.
 
 ## Arguments
 - `id` (required): Task ID

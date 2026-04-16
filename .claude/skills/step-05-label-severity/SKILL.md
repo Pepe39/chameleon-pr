@@ -9,7 +9,7 @@ Labels Axis 2 — Severity. Assesses how severe the issue is that the review com
 ## Context
 > See `docs/axis-2-severity.md` for definitions, evaluation criteria, and examples.
 > See `docs/steps/step7.md` for the step-by-step process.
-> See `DOCUMENTATION.md` sections 8 (FAQ), 9 (Common Mistakes), and 10 (Tips) for edge cases and pitfalls.
+> See `DOCUMENTATION.md` sections 9 (FAQ), 10 (Common Mistakes), and 11 (Tips) for edge cases and pitfalls.
 
 **Critical reminder:** Severity measures the **issue itself**, NOT the quality or tone of the comment. These axes are independent.
 

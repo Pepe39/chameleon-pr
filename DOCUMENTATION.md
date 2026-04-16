@@ -149,7 +149,7 @@ With the diff, comment, and any needed context in hand, assign labels for each a
 | Context Scope | `diff` / `file` / `repo` / `external` |
 | Advanced | `true` / `false` |
 
-Record your labels in the JSON format described in the Labeling Format guide (Section 7).
+Record your labels in the JSON format described in the Labeling Format guide (Section 8).
 
 ---
 
