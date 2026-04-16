@@ -25,12 +25,63 @@ Update `progress.md`: step 03 status = "in-progress", Started = {timestamp ISO 8
 
 Open the `discussion_url` using browser tools or `gh` CLI to verify that the comment shown on GitHub matches the `body` field in the input data.
 
+**If the comment is not visible in Files Changed** (common for Outdated comments), use these methods:
+1. **Conversations dropdown** in the Files Changed tab, which lists unresolved, resolved, and outdated conversations.
+2. **Conversation tab** of the PR, where outdated comments appear with a gray "Outdated" badge.
+3. **Commits tab**, click on the `original_commit_id` to see the comment in context with the code as it was.
+
 ```bash
 # Fetch the review comment by ID
 gh api repos/{nwo}/pulls/comments/{comment_id} --jq '.body'
 ```
 
 **If the comment does NOT match the body field:** Report to the user and STOP. Do not continue labeling with mismatched data.
+
+### 2b. Classify comment state
+
+Determine the comment's state: **Active**, **Outdated**, **Resolved**, or **Outdated & Resolved**.
+
+**Detect Outdated:** Compare the code at `comment_commit` around `diff_line` in `file_path` with the code at `head_sha` at the same location. If the lines changed, the comment is Outdated.
+
+**Detect Resolved:** Use GraphQL to check if the review thread is resolved:
+
+```bash
+gh api graphql -f query='query {
+  repository(owner:"{owner}", name:"{repo}") {
+    pullRequest(number:{pr_number}) {
+      reviewThreads(first:100) {
+        nodes { isResolved comments(first:1) { nodes { databaseId } } }
+      }
+    }
+  }
+}' --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.comments.nodes[0].databaseId == {comment_id}) | .isResolved'
+```
+
+If the GraphQL call fails, default to "unknown" and note in task_info.md.
+
+**Classify:**
+- Not outdated and not resolved -> **Active**
+- Outdated and not resolved -> **Outdated**
+- Not outdated and resolved -> **Resolved**
+- Both -> **Outdated & Resolved**
+
+Update `task_info.md` Input Data: set `**Comment State:**` to the classified value.
+
+**Evaluation rules by state:**
+- **Active**: evaluate normally, no special considerations.
+- **Outdated**: evaluate the comment against the code at `comment_commit` (the original code), not HEAD. Note in the analysis what changed afterwards.
+- **Resolved**: ignore the resolved state for technical evaluation. Evaluate as if Active.
+- **Outdated & Resolved**: treat as Outdated. The resolved state is just context.
+
+### 2c. Handle orphan comments (force push)
+
+If step-02 flagged `orphan = true` (original commit removed by force push):
+
+1. Do NOT attempt to browse the repo or verify the problem against HEAD.
+2. Recover context from the comment body. Look for suggestion blocks with original code, file path, and line numbers.
+3. If the comment body provides enough information to understand the issue, continue analysis with limited context. Document the limitation.
+4. If the information is insufficient to evaluate, report to the user: "Cannot evaluate, original commit was removed by force push and the comment body does not contain enough context." STOP.
+5. In all cases, add to task_info.md: `**Orphan Comment:** Original commit removed by force push. Evaluation based on comment body only.`
 
 ### 3. Analyze the diff in depth
 
@@ -76,7 +127,7 @@ grep -rn "import.*ModuleName" "tasks/{date}/{id}/work/repo/"
 
 **Fallback (if clone failed or work/repo/ does not exist):**
 
-Use `comment_commit` from the task_info.md "Comment Commit" field. If that field is missing or says "(populated after step 02)", fall back to `head_sha`.
+Use `comment_commit` from the task_info.md "Comment Commit" field. If that field is missing or says "(populated after step 02)", fall back to `head_sha` with a warning in task_info.md that the file content may not reflect the exact code state when the comment was made.
 
 ```bash
 gh api repos/{nwo}/contents/{file_path}?ref={comment_commit} --jq '.content' | base64 -d
@@ -123,12 +174,21 @@ Before updating task_info.md, verify that the task inputs are internally consist
 
 **6b. Verify the comment_commit contains the problem**
 
-Use `comment_commit` from `task_info.md` (the exact commit the reviewer commented on). If `comment_commit` is not available, fall back to `head_sha`.
+Use `comment_commit` from `task_info.md` (the exact commit the reviewer commented on). If `comment_commit` is not available and the comment is not orphaned, fall back to `head_sha` as last resort.
 
 - At `comment_commit`, does the code exhibit the issue described in the comment?
 - If YES: record "Problem confirmed at comment_commit ({comment_commit})."
 - If NO (the problem does not exist at comment_commit): record this finding. This is critical context for labeling; it may mean the comment is **wrong** (claims something that is not true) or **unhelpful** (the issue was already fixed before the comment was made). Do not assume wrong automatically; analyze why the mismatch exists.
-- If the code at comment_commit has ALREADY been fixed (e.g., a later commit addressed the issue before the comment): record "Problem not present at comment_commit; may have been fixed in a subsequent commit."
+
+**If Comment State is Outdated or Outdated & Resolved**, also compare the code at `comment_commit` vs `head_sha` and classify the outcome:
+
+1. **Problem was fixed afterwards**: the issue the comment points out existed at `comment_commit` but was resolved in a later commit. Record "Problem fixed in subsequent commit. Comment was valid at the time it was made."
+2. **Problem still persists**: despite the code changing, the issue still exists at HEAD. Record "Problem persists despite code changes. Evaluate normally."
+3. **Change introduced a different problem**: the original issue was resolved but the change introduced a new issue. Record "Original issue resolved, but a different problem was introduced. The comment is no longer relevant to the current code."
+
+In all Outdated cases, evaluate Quality based on whether the comment was correct at the time it was made (at `comment_commit`), not based on the current state of the code.
+
+**Common error to avoid:** Evaluating against the final code (HEAD) and concluding "the comment does not make sense" when it was actually valid for the original code at `comment_commit`.
 
 **6c. Verify the PR resolves what it claims**
 - Does the PR (title, description, changes) address what it claims to address?
@@ -153,6 +213,10 @@ Add a consistency section to the analysis:
 Add to the Analysis section:
 
 ```markdown
+### Comment State
+- **State:** {Active | Outdated | Resolved | Outdated & Resolved}
+- **Outdated Analysis:** {only if Outdated: fixed afterwards | still persists | different problem introduced}
+
 ### Comment Analysis
 - **Comment Verified:** Yes/No (matches body field)
 - **Issue Identified:** {1-2 sentence summary of what the comment points out}

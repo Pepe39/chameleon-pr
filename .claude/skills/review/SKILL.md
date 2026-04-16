@@ -525,11 +525,16 @@ Record your independent label. Compare against the task's label.
 
 #### 4d. Re-evaluate Advanced
 
-Ask: "Could a reviewer make this comment by looking only at the changed lines in the diff?"
+Advanced is derived from Context Scope using a deterministic mapping:
 
-If the issue is visible directly in the diff, label `False`.
+| Context Scope | Advanced |
+|---|---|
+| **diff** | False |
+| **file** | False |
+| **repo** | True (select the specific beyond-diff category) |
+| **external** | True (select the specific beyond-diff category) |
 
-If not, select the specific category that best explains why:
+If the context_scope from step 4c is `repo` or `external`, select the category that best explains why:
 
 | Category (platform value) | What to look for |
 |---|---|
@@ -537,13 +542,12 @@ If not, select the specific category that best explains why:
 | **Context outside changed files** | Comment requires knowledge from files not touched by the PR |
 | **Recent language/library updates** | Comment requires awareness of recent or non-obvious language/framework behavior |
 | **Better implementation approach** | Comment suggests a fundamentally better design, algorithm, or API usage (not just style) |
-| **False** | The issue is visible directly in the diff; a reviewer could make this comment from the changed lines alone |
 
-Record your independent label. Compare against the task's label.
+Record your independent label derived from the mapping. Compare against the task's label.
 
 | # | Check | Rule |
 |---|---|---|
-| V5 | Your independent advanced label matches the task's label | If mismatch, explain your reasoning |
+| V5 | Your independent advanced label matches the task's label | If mismatch, explain your reasoning. The mapping from context_scope must be respected. |
 
 ---
 

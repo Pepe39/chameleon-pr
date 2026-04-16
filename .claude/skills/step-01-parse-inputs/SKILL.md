@@ -60,6 +60,7 @@ Step 01 completed: {timestamp}
 - **Repository:** {nwo}
 - **Head SHA:** {head_sha}
 - **Comment Commit:** (populated after step 02)
+- **Comment State:** (populated after step 03)
 - **Comment ID:** {comment_id}
 - **File Path:** {file_path}
 - **Diff Line:** {diff_line}

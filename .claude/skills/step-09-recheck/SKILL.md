@@ -118,7 +118,7 @@ offending snippet (20 chars before and after) in the report.
 | id | Check |
 |---|---|
 | X1 | Each `*.md` file has a non-empty `## Reasoning` section (at least 40 chars after trimming whitespace). |
-| X2 | If `advanced == false`, the Advanced reasoning must NOT claim the comment requires knowledge outside the diff. Conversely, if `advanced != false`, the Advanced reasoning must explain what extra knowledge was needed. |
+| X2 | Advanced must be consistent with Context Scope via the deterministic mapping: if `context_scope` is `diff` or `file`, `advanced` must be `false`. If `context_scope` is `repo` or `external`, `advanced` must not be `false` (it must be one of the four beyond-diff categories). If this mapping is violated, report as `fail`. |
 | X3 | If `context_scope == diff`, no entry in `labels.json.context` may have a `file_path` that is NOT in the PR's Changed Files List from `task_info.md`. |
 | X4 | If `context_scope == file` or `repo`, at least one entry must reference a file or line NOT present in the PR diff hunks (otherwise scope should be `diff`). |
 

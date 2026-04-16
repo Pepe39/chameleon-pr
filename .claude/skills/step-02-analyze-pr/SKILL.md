@@ -29,11 +29,25 @@ gh api repos/{nwo}/pulls/comments/{comment_id} --jq '.original_commit_id'
 ```
 
 - Save the result as `comment_commit`.
-- If the call fails (404, auth error, network), fall back to `head_sha` and add a warning to `task_info.md`:
-  > **Warning:** Could not resolve comment_commit from GitHub API. Using head_sha as fallback. The repo clone may not reflect the exact code state when the comment was made.
+- If the call fails (404, auth error, network), add a warning to `task_info.md`:
+  > **Warning:** Could not resolve comment_commit from GitHub API. This may indicate a force push that removed the original commit.
+  Set `comment_commit` to the API-returned value anyway. Do NOT silently fall back to `head_sha`.
 - Update `task_info.md` Input Data section: set `**Comment Commit:**` to the resolved value.
 
 The pipeline uses `comment_commit` (not `head_sha`) for cloning the repo and verifying whether the problem exists. `head_sha` is still used for the PR diff (section 3) because the diff should reflect the full PR scope.
+
+### 2b. Detect Force Push (orphan check)
+
+After resolving `comment_commit`, verify it exists in the PR's commit history:
+
+```bash
+gh api repos/{nwo}/pulls/{pr_number}/commits --paginate --jq '.[].sha' | grep -Fxq "{comment_commit}"
+```
+
+- If found: the commit is part of the PR history. Continue normally.
+- If NOT found: the commit was likely removed by a force push. Mark as orphan in `task_info.md`:
+  > **Force Push Detected:** The original commit ({comment_commit}) does not appear in the PR commit history. The comment is orphaned.
+  Set a flag `orphan = true` for step-03. Skip the repo clone (section 5). Step-03 will evaluate using only the comment body and suggestion block.
 
 ### 3. Fetch PR information
 
@@ -81,7 +95,7 @@ From the diff, extract the section relevant to `file_path` and `diff_line`:
 
 Clone the repository at the exact commit the reviewer commented on, so that subsequent steps see the code as it was when the comment was made.
 
-Use `comment_commit` (resolved in section 2). If `comment_commit` could not be resolved and fell back to `head_sha`, use that value instead.
+Use `comment_commit` (resolved in section 2). If step 2b flagged the task as orphan (force push detected), skip this section entirely. The repo clone is not needed for orphan comments.
 
 ```bash
 # Ensure clean state (handles interrupted reruns)

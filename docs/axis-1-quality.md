@@ -2,6 +2,8 @@
 
 Classify the overall quality of the review comment. Choose exactly one label.
 
+**Central Question:** "Does the comment add value to the code review?" It is not about whether the comment is "correct" in some technical sense. It is about whether it helps the developer improve their code.
+
 ---
 
 ## Possible Values
@@ -76,6 +78,28 @@ The canonical decision tree lives in `.claude/skills/step-04-label-quality/SKILL
 - **A good catch with a bad fix is Unhelpful.** If the comment identifies a real issue but the suggested solution introduces regressions, incompatibilities, or worsens code quality, label as Unhelpful.
 - **Auto-generated files.** If the target file is a generated artifact and the generator or template is also in the PR, the comment targets the symptom, not the root cause. Label Unhelpful unless the comment explicitly addresses the generator.
 - Always verify the comment's claims against the actual code before labeling as Wrong.
+
+### Mixed Comments Rule
+
+When a comment makes multiple claims or has multiple parts, evaluate each part individually and then aggregate using this priority:
+
+1. If ANY part is **Wrong** -> the comment is **Wrong**
+2. If no part is Wrong but ANY part is **Unhelpful** -> the comment is **Unhelpful**
+3. Only if ALL parts add value -> **Helpful**
+
+A code review comment must be completely useful to deserve the Helpful label. If part of the comment confuses the developer, suggests something incorrect, or adds noise without value, the comment as a whole does not fulfill its purpose.
+
+### Additional Edge Cases
+
+**Redundant with the diff.** If the dev already implemented what the comment suggests in the same PR, the comment is **Unhelpful**. It does not add value because it asks for something that already exists.
+
+**Comment on code that did not change.** If the comment targets code that existed before the PR and was not modified:
+- If the issue affects the new functionality introduced by the PR -> can be **Helpful**
+- If the issue is completely separate from the PR's scope -> **Unhelpful**
+
+**Style trade-off.** If the comment suggests a stylistic alternative where both options are valid and neither is objectively better (for vs forEach, ternary vs if/else), the comment is **Unhelpful**. Preference without objective improvement is not a real issue.
+
+**Typo distinction.** A typo in an executable identifier (function name, variable name) is a real issue that affects maintainability, so it is **Helpful**. A typo inside a code comment (non-executable text) may be **Unhelpful** depending on impact.
 
 ---
 

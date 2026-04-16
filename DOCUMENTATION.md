@@ -7,15 +7,16 @@ Label code review comments across four axes — **Quality**, **Severity**, **Con
 ## Table of Contents
 
 1. [Project Overview](#1-project-overview)
-2. [Step-by-Step Labeling Workflow](#2-step-by-step-labeling-workflow)
-3. [Axis 1: Quality](#3-axis-1-quality)
-4. [Axis 2: Severity](#4-axis-2-severity)
-5. [Axis 3: Context Scope](#5-axis-3-context-scope)
-6. [Axis 4: Advanced](#6-axis-4-advanced)
-7. [Labeling Format & Examples](#7-labeling-format--examples)
-8. [Frequently Asked Questions](#8-frequently-asked-questions)
-9. [Common Mistakes](#9-common-mistakes)
-10. [Tips & Best Practices](#10-tips--best-practices)
+2. [Comment States in GitHub](#2-comment-states-in-github)
+3. [Step-by-Step Labeling Workflow](#3-step-by-step-labeling-workflow)
+4. [Axis 1: Quality](#4-axis-1-quality)
+5. [Axis 2: Severity](#5-axis-2-severity)
+6. [Axis 3: Context Scope](#6-axis-3-context-scope)
+7. [Axis 4: Advanced](#7-axis-4-advanced)
+8. [Labeling Format & Examples](#8-labeling-format--examples)
+9. [Frequently Asked Questions](#9-frequently-asked-questions)
+10. [Common Mistakes](#10-common-mistakes)
+11. [Tips & Best Practices](#11-tips--best-practices)
 
 ---
 
@@ -51,7 +52,59 @@ Every review comment is labeled across four independent axes. Each axis is evalu
 
 ---
 
-## 2. Step-by-Step Labeling Workflow
+## 2. Comment States in GitHub
+
+Code review comments in GitHub are anchored to specific lines in a specific commit (`original_commit_id`). Comments can be in one of four states.
+
+### Possible States
+
+| State | Description | Detection | Automatic/Manual |
+|---|---|---|---|
+| **Active** | Comment on code that has not been modified and was not marked as resolved | No special badges | -- |
+| **Outdated** | The code the comment points to was modified in subsequent commits | Gray "Outdated" badge | Automatic |
+| **Resolved** | Someone manually marked the thread as resolved | "Resolved" badge or collapsed thread | Manual |
+| **Outdated & Resolved** | Both states combined | Both badges present | Both |
+
+### Evaluation Rules by State
+
+| State | Affects evaluation? | What to do |
+|---|---|---|
+| Active | No | Evaluate normally |
+| Outdated | Yes | Evaluate against original code at `original_commit_id`. Classify outcome (see below) |
+| Resolved | No | Ignore the resolved state, evaluate normally |
+| Outdated & Resolved | Yes | Treat as Outdated. The Resolved state is just context |
+
+Always evaluate against `original_commit_id`, never against HEAD. The "Resolved" state is UI metadata only and does not mean the technical issue was fixed.
+
+**Common error:** Evaluating against the final code (HEAD) and concluding that "the comment does not make sense" when it was actually valid for the original code.
+
+### Outdated Comment Subcases
+
+When a comment is Outdated, compare the code at `original_commit_id` vs the current code (HEAD) and classify:
+
+1. **Problem was fixed afterwards.** The issue existed at `original_commit_id` but was resolved in a later commit. The comment was valid at the time it was made.
+2. **Problem still persists.** Despite the code changing, the issue still exists at HEAD. Evaluate normally.
+3. **Change introduced a different problem.** The original issue was resolved but the change introduced a new issue. The comment is no longer relevant to the current code.
+
+In all Outdated cases, evaluate Quality based on whether the comment was correct at the time it was made. Severity is based on the original code. Context Scope is from the original commit.
+
+### How to Find Hidden Comments
+
+When comments disappear from Files Changed (because the anchored lines were modified):
+
+1. **Conversations dropdown** in Files Changed tab. Lists all conversations categorized as unresolved, resolved, outdated.
+2. **Conversation tab.** Outdated comments appear with a gray "Outdated" badge. Resolved comments appear collapsed.
+3. **Commits tab.** Click on the `original_commit_id` to see the comment in context with the code as it was when the comment was made.
+
+### Force Push Special Case
+
+A force push rewrites branch history. If `original_commit_id` was deleted by a force push, the comment becomes orphaned. Signs: the comment appears in Conversation tab but cannot navigate to its original context, or `original_commit_id` does not appear in the PR Commits tab.
+
+When the original commit does not exist: recover context from the comment body and suggestion block if available. Document in Notes that the original commit does not exist. If information is sufficient, evaluate. If not, do not evaluate.
+
+---
+
+## 3. Step-by-Step Labeling Workflow
 
 ### Workflow at a Glance
 
@@ -100,7 +153,9 @@ Record your labels in the JSON format described in the Labeling Format guide (Se
 
 ---
 
-## 3. Axis 1: Quality
+## 4. Axis 1: Quality
+
+**Central Question:** "Does the comment add value to the code review?" It is not about whether the comment is "correct" in some technical sense. It is about whether it helps the developer improve their code.
 
 Classify the overall quality of the review comment. Choose exactly one label.
 
@@ -157,9 +212,28 @@ It may be pedantic, obvious, stylistic without substance, or not actionable.
 | "Consider renaming x to count." | **Unhelpful** — Naming preference on a local variable in a 3-line function. No impact. | Labeling as Helpful because better names are always good. A naming nit on a trivial local variable adds no practical value. |
 | "This will crash on Python 2 — dict.items() returns a list, not a view." (Code is Python 3 only.) | **Wrong** — Factually incorrect about the runtime environment. | Labeling as Unhelpful because it sounds like it could be valid. If the claim is factually false, it's Wrong, not Unhelpful. |
 
+### Mixed Comments Rule
+
+When a comment makes multiple claims, evaluate each part individually. The most problematic part determines the final label:
+
+1. If ANY part is **Wrong** -> the comment is **Wrong**
+2. If no part is Wrong but ANY part is **Unhelpful** -> the comment is **Unhelpful**
+3. Only if ALL parts add value -> **Helpful**
+
+### Additional Edge Cases
+
+| Situation | Label | Reasoning |
+|---|---|---|
+| Suggestion already implemented in the same PR | **Unhelpful** | The comment is redundant with the diff. It asks for something that already exists. |
+| Comment on unchanged code, issue related to new functionality | **Helpful** | The issue affects the PR's changes even though the code itself was not modified. |
+| Comment on unchanged code, issue completely separate from the PR | **Unhelpful** | Out of scope for this review. |
+| Style trade-off where both options are valid (for vs forEach) | **Unhelpful** | Preference without objective improvement. Not a real issue. |
+| Typo in executable identifier (function name, variable) | **Helpful** | Real issue that affects maintainability. |
+| Typo inside a code comment (non-executable text) | **Unhelpful** | Depends on impact, but generally does not affect code behavior. |
+
 ---
 
-## 4. Axis 2: Severity
+## 5. Axis 2: Severity
 
 Assess how severe the issue is that the review comment points out. **Severity measures the issue itself, not the quality of the comment.**
 
@@ -206,7 +280,9 @@ The same missing null check can be nit or critical depending on context:
 
 ---
 
-## 5. Axis 3: Context Scope
+## 6. Axis 3: Context Scope
+
+**Central Question:** "What did the reviewer have to read or know to make this comment?" It is NOT about where the comment appears. It is NOT about where the problematic code is. It IS about what information was needed to identify the issue.
 
 Determine what level of context a reviewer would need to confidently make this comment. Choose exactly one scope level. Each level includes everything below it. **Pick the broadest scope needed.**
 
@@ -280,30 +356,51 @@ Two fields work together:
 - List **all** pieces of context in the `context` array. If only the diff was needed, one entry is enough. If the reviewer also needs to read another part of the file or another file, add those as additional entries.
 - If `context_scope` is `"external"`, the `context` array may be empty (`[]`) since the knowledge comes from outside the repository (e.g., language docs, framework behavior, RFCs).
 
+### New Files Rule
+
+If the target file is completely new in the PR (diff header `@@ -0,0 +1,N @@`, all lines are added), the scope is **diff** even if you need to read multiple parts of the file. There is no "file" scope for files that did not exist before the PR.
+
+### Common Errors
+
+- **Defaulting to Diff.** A simple comment may require broad context. The comment's simplicity does not determine the scope.
+- **Choosing File because the file is large.** The file's size is irrelevant. What matters is whether the lines you need are in the diff or not.
+- **Choosing Repo because "Copilot must have read other files."** Do not speculate about what Copilot consumed. Evaluate what information was needed to make the comment.
+- **Forgetting the new files rule.** New file means everything is diff. There is no "file" scope for files that did not exist.
+- **Do not conflate analyst verification with reviewer observation.** You may read the full file or browse the repo to verify the comment's claims. That does not mean the reviewer needed that context to make the comment.
+
 ---
 
-## 6. Axis 4: Advanced
+## 7. Axis 4: Advanced
 
-Does the comment go beyond what is obvious from reading the changed lines alone? This is a **binary label**.
+Does the comment go beyond what is obvious from reading the files changed in the PR? This label is **derived automatically from Context Scope**.
 
-### When to Label `true`
+### Mapping Rule
 
-Label as `true` if the comment meets **one or more** of these criteria:
+| Context Scope | Advanced |
+|---|---|
+| **diff** | False |
+| **file** | False |
+| **repo** | True (select the specific beyond-diff category) |
+| **external** | True (select the specific beyond-diff category) |
 
-| Criteria | Description |
+You do not need to evaluate Axis 3 and Axis 4 separately. Once you determine the Context Scope, Advanced is automatically determined.
+
+Diff and File are within the PR's files, so they do not require going "beyond." Repo and External are outside the PR's files, so they require knowledge beyond the changed files.
+
+### Beyond-Diff Categories (when True)
+
+When Context Scope is `repo` or `external`, select the primary driver:
+
+| Category | Description |
 |---|---|
 | **Repo-Specific Conventions** | Pertains to conventions, patterns, or architectural decisions specific to this repository that are not universally known. |
 | **Context Outside Changed Files** | Requires knowledge from files not touched by the PR (base classes, shared utilities, config, API contracts). |
 | **Recent Language / Library Updates** | Requires awareness of recent or non-obvious language features, library behavior, deprecations, or framework semantics. |
-| **Better Implementation Approach** | Suggests a meaningfully better way to implement — not just style, but a fundamentally improved design, algorithm, or API usage. |
-
-### When to Label `false`
-
-The comment doesn't meet any of the criteria above. Comments that are obvious from reading the diff alone — such as typos, simple style issues, or straightforward logic errors visible in the changed lines — are **not** advanced.
+| **Better Implementation Approach** | Suggests a meaningfully better way to implement, not just style but a fundamentally improved design, algorithm, or API usage. |
 
 ---
 
-## 7. Labeling Format & Examples
+## 8. Labeling Format & Examples
 
 ### Worked Example 1: Helpful + Critical + File + Not Advanced
 
@@ -348,7 +445,7 @@ The comment doesn't meet any of the criteria above. Comments that are obvious fr
 
 ---
 
-## 8. Frequently Asked Questions
+## 9. Frequently Asked Questions
 
 ### How should I distinguish between Quality and Severity?
 
@@ -364,7 +461,7 @@ Yes. You still fill in `diff_line` for any context entry that points to a specif
 
 ---
 
-## 9. Common Mistakes
+## 10. Common Mistakes
 
 These mistakes reduce dataset quality and hurt model training. Review these patterns to avoid the most common errors.
 
@@ -398,15 +495,15 @@ These mistakes reduce dataset quality and hurt model training. Review these patt
 
 **The Fix:** The axes are independent. A Wrong comment about a real security vulnerability is Wrong + Critical. A Helpful comment about a naming nit is Helpful + Nit. Always rate each axis on its own.
 
-### Mistake 5: Marking Everything as Advanced
+### Mistake 5: Evaluating Advanced Independently
 
-**The Mistake:** Labeling every non-trivial comment as Advanced = true because it requires some thought to understand.
+**The Mistake:** Evaluating Advanced as an independent axis, assigning True to complex or insightful comments even when Context Scope is diff or file.
 
-**The Fix:** Advanced means the comment requires knowledge most reviewers wouldn't have from the diff alone — repo conventions, untouched files, or non-obvious framework behavior. A complex but visible logic error in the diff is still `false`.
+**The Fix:** Advanced is derived from Context Scope. Diff or File maps to False. Repo or External maps to True. Do not override this mapping based on the comment's perceived difficulty or insight.
 
 ---
 
-## 10. Tips & Best Practices
+## 11. Tips & Best Practices
 
 ### Quality
 - Quality and Severity are independent axes. A comment can be helpful but nit-level, or wrong about a critical issue.
@@ -423,8 +520,8 @@ These mistakes reduce dataset quality and hurt model training. Review these patt
 - `external` means the reviewer relied on knowledge outside the repo entirely — API docs, RFCs, language specs, etc.
 
 ### Advanced
-- Advanced = true requires deeper knowledge beyond the diff: repo conventions, untouched files, recent library changes, or better implementation approaches.
-- If the comment could have been written by seeing only the changed lines, Advanced is false — even if the comment is insightful.
+- Advanced is derived from Context Scope. Diff or File = False. Repo or External = True.
+- Do not evaluate Advanced separately. Once Context Scope is set, the mapping is automatic.
 
 ### General Workflow
 - Always double-check that the comment in the discussion matches the `body` field in the input data before labeling.
