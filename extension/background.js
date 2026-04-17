@@ -112,10 +112,15 @@ function scrapeReviewPage() {
       tbody.querySelectorAll('tr').forEach(tr => {
         const fields = tr.querySelectorAll('input, textarea');
         if (fields.length >= 3) {
+          const dl = fields[0].value || '';
+          const fp = fields[1].value || '';
+          const wy = fields[2].value || '';
+          // Skip the platform's blank placeholder row.
+          if (!dl.trim() && !fp.trim() && !wy.trim()) return;
           current.context_scope.entries.push({
-            diff_line: fields[0].value || '',
-            file_path: fields[1].value || '',
-            why: fields[2].value || '',
+            diff_line: dl,
+            file_path: fp,
+            why: wy,
           });
         }
       });
@@ -360,6 +365,7 @@ function fillDeliverablesPage(deliverables) {
   }
 
   async function fillContextEntries(entries) {
+    console.log('[code-review] fillContextEntries v0.1.1 starting, entries=', entries.length);
     const tables = document.querySelectorAll('table, [role="table"]');
     let table = null;
     for (const t of tables) {
@@ -383,15 +389,34 @@ function fillDeliverablesPage(deliverables) {
       );
     }
 
-    for (let i = 0; i < entries.length; i++) {
-      const e = entries[i];
-      const before = dataRows().length;
-      addBtn.click();
-      // Wait for the new row to actually appear
-      for (let w = 0; w < 20 && dataRows().length === before; w++) await delay(50);
+    // Drop entries where all three fields are empty. These come from the
+    // platform's blank placeholder row being picked up during scrape, and
+    // refilling them would re-introduce the validation error we're fixing.
+    const nonEmpty = entries.filter(e =>
+      (e.diff_line || '').trim() || (e.file_path || '').trim() || (e.why || '').trim()
+    );
+    function rowIsEmpty(r) {
+      const flds = r.querySelectorAll('input, textarea, [contenteditable="true"]');
+      return Array.from(flds).every(f =>
+        !(((f.value != null ? f.value : f.textContent) || '').trim())
+      );
+    }
 
-      const rows = dataRows();
-      const row = rows[rows.length - 1];
+    for (let i = 0; i < nonEmpty.length; i++) {
+      const e = nonEmpty[i];
+
+      // Reuse an existing empty row if one survived clearFields. Some
+      // platform placeholder rows have no delete button, so clearFields
+      // cannot remove them. Filling them avoids leaving a blank row that
+      // trips the context-entries-have-file-path/why validators.
+      let row = dataRows().find(rowIsEmpty) || null;
+      if (!row) {
+        const before = dataRows().length;
+        addBtn.click();
+        for (let w = 0; w < 20 && dataRows().length === before; w++) await delay(50);
+        const rows = dataRows();
+        row = rows[rows.length - 1];
+      }
       if (!row) { results.errors.push(`Context row ${i + 1} not created`); continue; }
 
       const fields = row.querySelectorAll('input, textarea, [contenteditable="true"]');
@@ -412,6 +437,23 @@ function fillDeliverablesPage(deliverables) {
         await delay(60);
       }
       results.filled++;
+    }
+
+    // Final sweep: try to delete any row that ended up empty. Some platform
+    // placeholder rows have no delete button, in which case we log and move on.
+    for (let safety = 0; safety < 20; safety++) {
+      const stray = dataRows().find(rowIsEmpty);
+      if (!stray) break;
+      const delBtn =
+        stray.querySelector('button[aria-label*="delete" i], button[aria-label*="remove" i], button[title*="delete" i], button[title*="remove" i]') ||
+        Array.from(stray.querySelectorAll('button')).find(b => /^(×|x|delete|remove|trash|🗑)$/i.test((b.textContent || '').trim()));
+      if (!delBtn) {
+        console.warn('[code-review] empty row has no delete button, cannot remove');
+        results.errors.push('empty context row could not be removed');
+        break;
+      }
+      delBtn.click();
+      await delay(100);
     }
   }
 

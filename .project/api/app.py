@@ -166,28 +166,29 @@ def parse_context_scope(text):
                     })
                 i += 1
         else:
-            # Platform copy-paste format: each row is 4 consecutive non-empty
-            # lines (row#, diff_line, file_path, why). Group them.
-            buf = []
+            # Platform copy-paste format: each row is exactly 4 lines
+            # (row_index, diff_line, file_path, why). diff_line may be blank
+            # for files NOT in the PR diff. Blank lines must NOT be skipped
+            # (they carry the empty diff_line slot). Once a row_index line
+            # is found, consume the next 3 lines as the entry's fields
+            # verbatim; do not treat subsequent lines as new row_index
+            # candidates, since a diff_line like "4" also looks like one.
             while i < len(lines):
-                row = lines[i].strip()
-                if not row:
+                if re.match(r"^\d+$", lines[i].strip()):
+                    diff_line = lines[i + 1].strip() if i + 1 < len(lines) else ""
+                    file_path = lines[i + 2].strip() if i + 2 < len(lines) else ""
+                    why = lines[i + 3].strip() if i + 3 < len(lines) else ""
+                    # Guard: if all three fields are empty, the row_index was
+                    # likely a stray number, not a real entry.
+                    if diff_line or file_path or why:
+                        entries.append({
+                            "diff_line": diff_line,
+                            "file_path": file_path,
+                            "why": why,
+                        })
+                    i += 4
+                else:
                     i += 1
-                    continue
-                # New entry starts with a numeric row index
-                if re.match(r"^\d+$", row) and len(buf) == 0:
-                    buf.append(row)
-                elif buf:
-                    buf.append(row)
-                if len(buf) == 4:
-                    _, diff_line, file_path, why = buf
-                    entries.append({
-                        "diff_line": diff_line,
-                        "file_path": file_path,
-                        "why": why,
-                    })
-                    buf = []
-                i += 1
     return {"label": label, "entries": entries}
 
 
@@ -457,6 +458,21 @@ def review():
     return jsonify({"status": "running"})
 
 
+def _recheck_passed(review_dir):
+    """Return True if recheck_report.md exists and reports 0 failures."""
+    rp = review_dir / "recheck_report.md"
+    if not rp.is_file():
+        return False
+    try:
+        text = rp.read_text(encoding="utf-8")
+    except Exception:
+        return False
+    m = re.search(r"(\d+)\s+failures?", text, re.IGNORECASE)
+    if not m:
+        return False
+    return int(m.group(1)) == 0
+
+
 def _review_worker(task_id, review_dir, mode="auto", model=None):
     try:
         ok, result = run_claude(task_id, label="REVIEW", command="review", mode=mode, model=model)
@@ -465,6 +481,18 @@ def _review_worker(task_id, review_dir, mode="auto", model=None):
                 review_jobs[task_id] = {"status": "error", "error": result.get("error"), "result": None}
             return
         out = read_review_outputs(review_dir)
+        if not out and _recheck_passed(review_dir):
+            # Subprocess returned OK and recheck passed but feedback_to_cb.md
+            # was never written. Known failure mode: the parent session ran
+            # out of budget after the nested recheck. Run step-review-finalize
+            # to close out the review using the artifacts already on disk.
+            print(f"[REVIEW] {task_id}: feedback_to_cb.md missing but recheck passed, invoking finalize")
+            ok2, _ = run_claude(
+                task_id, label="FINALIZE", command="step-review-finalize",
+                mode="auto", model=model,
+            )
+            if ok2:
+                out = read_review_outputs(review_dir)
         if not out:
             with _state_lock:
                 review_jobs[task_id] = {
