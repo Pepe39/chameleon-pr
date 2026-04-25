@@ -336,10 +336,20 @@ function fillDeliverablesPage(deliverables) {
     // 1. Native <select> dropdown
     const select = section.querySelector('select');
     if (select) {
-      const opt = Array.from(select.options).find(o =>
+      // Special case for the Addressed axis "empty" value. Some platforms render
+      // it as <option value="empty">empty</option>, others as the placeholder
+      // <option value="">— Select —</option>. Try both forms.
+      let opt = Array.from(select.options).find(o =>
         (o.value || '').trim().toLowerCase() === want ||
         (o.textContent || '').trim().toLowerCase() === want
       );
+      if (!opt && want === 'empty') {
+        opt = Array.from(select.options).find(o => {
+          const v = (o.value || '').trim().toLowerCase();
+          const t = (o.textContent || '').trim().toLowerCase();
+          return v === '' || /^(—\s*select\s*—|select|\(?empty\)?|none|-{1,3}|n\/a)$/i.test(t);
+        });
+      }
       if (opt) {
         const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
         setter.call(select, opt.value);

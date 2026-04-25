@@ -1,10 +1,8 @@
 # Axis 2: Addressed
 
-> Platform numbers this as Axis 2. Local file names keep the older numbering until the Phase 4 rename lands.
+Determine whether the review comment was addressed. The platform exposes a 4-value enum on every task. The fourth value `empty` is selected on PRs that are not merged, since the merge state needed to evaluate `addressed`, `ignored`, or `false_positive` does not exist yet.
 
-Determine whether the review comment was addressed in the final merged code. Choose exactly one label.
-
-**IMPORTANT.** This axis is only labeled when the PR is merged. If the PR is still open, leave the field empty and skip the deliverable. The pipeline enforces this. `step-045-label-addressed` runs only when `task_info.md` records the PR as merged.
+`step-045-label-addressed` always runs and writes one of the four values. Step-08 always emits `addressed.md` and the field is always present in `labels.json`.
 
 ---
 
@@ -12,6 +10,7 @@ Determine whether the review comment was addressed in the final merged code. Cho
 
 | Value | Definition |
 |---|---|
+| **empty** | The PR is not merged. The merge state needed to choose between `addressed`, `ignored`, or `false_positive` does not exist yet. This is an active selection on the platform, not the absence of a label. Used when `state == OPEN` or the PR is closed without merging. |
 | **addressed** | The codebase was changed in a way that addresses the underlying problem or concern raised in the comment. If the comment was not valid and will be addressed later or in another PR, it is also considered as addressed. |
 | **ignored** | The comment was neither addressed nor indicated to be incorrect, invalid, or unnecessary. The content was not changed in any way that was influenced by the comment, and no one indicated an intention to address the comment now or in the future. |
 | **false_positive** | The developer or another participant commented or otherwise indicated that the comment was incorrect, invalid, or unnecessary. |
@@ -23,8 +22,8 @@ Determine whether the review comment was addressed in the final merged code. Cho
 Use this decision tree:
 
 ```
-Is the PR still open, not merged?
-  → Yes → Leave this field empty. Do not label
+Is the PR open or closed without merging?
+  → Yes → EMPTY
   → No, PR is merged ↓
 
 Did someone reply saying the comment was incorrect, invalid, or unnecessary?

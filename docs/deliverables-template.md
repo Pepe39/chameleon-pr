@@ -6,12 +6,12 @@ Reference for the expected structure of each deliverable file generated in `task
 
 ## labels.json
 
-The structured output for submission. Contains all five axis labels and the context evidence array. The `addressed` field is only included when the PR is merged.
+The structured output for submission. Contains all five axis labels and the context evidence array. The `addressed` field is always present and uses one of four enum values, including `empty` for non-merged PRs.
 
 ```json
 {
   "quality": "helpful | unhelpful | wrong",
-  "addressed": "addressed | ignored | false_positive",
+  "addressed": "empty | addressed | ignored | false_positive",
   "severity": "nit | moderate | critical",
   "context_scope": "diff | file | repo | external",
   "context": [
@@ -28,11 +28,12 @@ The structured output for submission. Contains all five axis labels and the cont
 **Rules:**
 - 2-space indentation
 - `advanced` is a string enum, not a boolean. One of the five values `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`
-- `addressed` is only included when the PR is merged. Omit the field entirely when the PR is still open
+- `addressed` is a string enum with four values. `empty`, `addressed`, `ignored`, `false_positive`. The value `empty` is an active selection used when the PR is not merged. The field is always present in `labels.json`
 - `diff_line` is a string like `"42"` or `"83-120"`, or `null`. Never a number
 - `context` must have at least 1 entry when context_scope is `diff`, `file`, or `repo`
 - `context` may be `[]` when context_scope is `external`
 - Hard rule. If `context_scope` is `repo` or `external`, then `advanced` must not be `False`. That combination is invalid by definition because crossing the diff boundary is itself beyond-diff knowledge
+- Hard rule. If `addressed` is `empty`, the PR must not be merged. If `addressed` is one of `addressed`, `ignored`, `false_positive`, the PR must be merged. Mismatch is invalid
 
 ---
 
@@ -61,7 +62,7 @@ Justification for the Quality axis. The Reasoning section is pasted directly int
 
 ## addressed.md
 
-Justification for the Addressed axis. **Only generated when the PR is merged.** Skip this file when the PR is still open. The Reasoning section is pasted directly into the annotation platform.
+Justification for the Addressed axis. Always generated. Uses one of four enum values. The Reasoning section is pasted directly into the annotation platform.
 
 ```markdown
 # Addressed: {id}
@@ -71,12 +72,13 @@ Justification for the Addressed axis. **Only generated when the PR is merged.** 
 - **PR:** {pull_request_url}
 
 ## Label
-**{addressed | ignored | false_positive}**
+**{empty | addressed | ignored | false_positive}**
 
 ## Reasoning
 {Self-contained justification. 2-3 sentences explaining:
-- Whether and how the comment was addressed in the merged code
-- The specific commit, reply, or code change that shows the outcome
+- For `empty`, state the PR merged status and explain that the merge state needed to evaluate the merged-PR values does not exist yet
+- For `addressed`, name the specific commit, reply, or code change that shows the outcome
+- For `ignored`, confirm no reply and no relevant code change in the merged state
 - For `false_positive`, cite the reviewer or author reply that dismissed the comment}
 ```
 

@@ -122,18 +122,20 @@ Use this decision tree:
 
 ### Step 7: Label Axis 2. Addressed
 
-> **Only runs when the PR is merged.** Skip this step entirely if the PR is still open, and omit the `addressed` field from the output. Do not leave it empty. Do not default to a value. Just do not include it.
+> Always runs. The platform exposes a 4-value enum on every task. The fourth value `empty` is the active selection for PRs that are not merged.
 
-Decide. Was the comment addressed in the merged PR?
+Decide. What is the state of the comment on the PR?
 
-| Label | Question to Ask | Examples |
+| Label | When to pick it | Examples |
 |---|---|---|
-| **addressed** | Did the merged code change in a way that resolves the underlying concern? | Reviewer's exact suggestion was applied, or a different fix that solves the same problem, or an author reply promising to fix later or in another PR |
-| **ignored** | Is the merged code unchanged on this concern, with no discussion dismissing the comment? | The comment was posted and nobody touched the code or replied to it |
-| **false_positive** | Did the PR author or another reviewer explicitly rebut the comment? | Reply explains the comment is based on a misunderstanding, points at code that already handles the case, or calls the concern non-applicable |
+| **empty** | The PR is open or closed without merging. The merge state needed to choose between the other three values does not exist | PR `state == OPEN`, or closed without merging |
+| **addressed** | Merged PR. The merged code changed in a way that resolves the underlying concern | Reviewer's exact suggestion was applied, a different fix that solves the same problem, or an author reply promising to fix later or in another PR |
+| **ignored** | Merged PR. The merged code is unchanged on this concern and no discussion dismissed the comment | The comment was posted and nobody touched the code or replied to it |
+| **false_positive** | Merged PR. The PR author or another reviewer explicitly rebutted the comment | Reply explains the comment is based on a misunderstanding, points at code that already handles the case, or calls the concern non-applicable |
 
 **Key reminders:**
-- Silence is not a false positive. Without an explicit rebuttal, the default is `ignored`.
+- `empty` is not the same as not selecting. It is an active selection.
+- Silence on a merged PR is not a false positive. Without an explicit rebuttal, the default is `ignored`.
 - The fix does not have to match the reviewer's suggestion. Any change that resolves the underlying concern counts as `addressed`.
 - Compare against the **merged** state, not HEAD of the branch at the time of the comment. Follow the thread all the way to what landed.
 
@@ -246,7 +248,7 @@ Compile your labels into the output format. The `addressed` field is only presen
 **Final checklist before submitting:**
 - [ ] Verified the comment matches the `body` field
 - [ ] Quality is based on factual correctness and usefulness
-- [ ] Addressed is filled **only** when the PR is merged. Omitted otherwise
+- [ ] Addressed is one of the four enum values. `empty` on non-merged PRs, otherwise one of `addressed`, `ignored`, `false_positive`
 - [ ] Severity rates the issue, not the comment's tone
 - [ ] Context scope reflects the broadest level needed
 - [ ] Context array lists all evidence the reviewer used
@@ -261,7 +263,7 @@ Compile your labels into the output format. The `addressed` field is only presen
 | Axis | Values | Key Rule |
 |---|---|---|
 | **Quality** | helpful / unhelpful / wrong | Wrong means factually false, not "I disagree" |
-| **Addressed** | addressed / ignored / false_positive. Merged PRs only | Silence is not a false positive. Default is `ignored` |
+| **Addressed** | empty / addressed / ignored / false_positive | `empty` is the active selection for non-merged PRs. On merged PRs, silence is not a false positive, default is `ignored` |
 | **Severity** | nit / moderate / critical | Rate the issue, not the comment |
 | **Context Scope** | diff / file / repo / external | Pick the broadest level needed |
 | **Advanced** | False / Repo-specific conventions / Context outside changed files / Recent language / library updates / Better implementation approach | Derived from scope. `diff` or `file` maps to `False`. `repo` or `external` maps to one of the four non-False values |

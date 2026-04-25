@@ -1,7 +1,7 @@
 # step-045-label-addressed
 
 ## What it does
-Labels Axis 2 Addressed. Determines whether the review comment was addressed, ignored, or a false positive in the merged PR. **Only runs when the PR is merged.** On open PRs the skill marks the step as `skipped` and moves on without producing a deliverable.
+Labels Axis 2 Addressed. Always runs. Selects one of four enum values: `empty`, `addressed`, `ignored`, `false_positive`. The platform requires this axis on every task, including open PRs. On open or closed-not-merged PRs the value is `empty` because the merge state needed to evaluate addressed/ignored/false_positive does not exist yet.
 
 ## Prerequisites
 - Step 04 completed (Quality labeled)
@@ -27,21 +27,20 @@ If `work/thread.md` exists, read it as well. The body of this task is a nested r
 
 Update `progress.md`. step 045 status = `in-progress`, Started = {timestamp ISO 8601}.
 
-### 2. Merged-status gate
+### 2. Merged-status branch
 
-**If the PR is not merged**, do the following and stop:
+**If `PR Merged Status` is `open` or `closed_not_merged`**, the value is `empty`:
 
-1. Set step 045 status = `skipped` in `progress.md` with a short reason like `PR not merged, Addressed is open-PR excluded`.
-2. Set Current Step = `05 - Label Severity`.
-3. Add to `task_info.md` Labels section:
+1. Add to `task_info.md` Labels section:
    ```markdown
    ### Addressed
-   - **Label:** (skipped, PR not merged)
-   - **Reasoning:** Axis 2 Addressed is only labeled for merged PRs. The PR status at task time was {merged_status_value}, so the axis was skipped by design.
+   - **Label:** empty
+   - **Reasoning:** The PR is {merged_status_value}, so the merge state needed to evaluate `addressed`, `ignored`, or `false_positive` does not exist. Per platform convention the field is set to `empty` for non-merged PRs.
    ```
-4. Return. Do not produce an `addressed.md` deliverable. Step-08 will see the skipped status and omit the field from `labels.json`.
+2. Update `progress.md`. step 045 status = `done`, Completed = {timestamp ISO 8601}, Current Step = `05 - Label Severity`.
+3. Return. Step-08 will write `addressed.md` with label `empty` and the field will be present in `labels.json`.
 
-**If the PR is merged**, continue to step 3.
+**If `PR Merged Status` is `merged`**, continue to step 3 to pick from `addressed`, `ignored`, or `false_positive`.
 
 ### 3. Gather merged-state evidence
 

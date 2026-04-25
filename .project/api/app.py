@@ -107,7 +107,7 @@ def parse_axis_md(text, axis_kind):
     lines = [l.strip() for l in text.splitlines()]
     label_sets = {
         "quality":   {"helpful", "unhelpful", "wrong"},
-        "addressed": {"addressed", "ignored", "false_positive"},
+        "addressed": {"empty", "addressed", "ignored", "false_positive"},
         "severity":  {"nit", "moderate", "critical"},
         "advanced":  {"repo-specific conventions", "context outside changed files",
                       "recent language / library updates", "recent language/library updates",

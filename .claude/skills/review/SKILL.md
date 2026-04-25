@@ -285,17 +285,17 @@ Axis 1: Quality Justification *
 {Reasoning text}
 ```
 
-**addressed.md** format (only present when the PR was merged):
+**addressed.md** format (always present):
 ```
 Axis 2: Addressed *
 ...prompt text...
 
-{Label}              <-- one of: addressed, ignored, false_positive
+{Label}              <-- one of: empty, addressed, ignored, false_positive
 Axis 2: Addressed Justification *
 {Reasoning text}
 ```
 
-If `addressed.md` is absent in the deliverables directory, verify that `task_info.md` records `PR Merged Status` as `open` or `closed_not_merged`. If the PR is merged but `addressed.md` is missing, record a blocking failure and stop. If the PR is not merged and `addressed.md` is absent, that is the expected state.
+`addressed.md` must always be present in the deliverables directory. If it is missing, record a blocking failure and stop. The expected value depends on `task_info.md` `PR Merged Status`. `empty` for `open` or `closed_not_merged`, one of `addressed`, `ignored`, `false_positive` for `merged`.
 
 **severity.md** format:
 ```
@@ -337,7 +337,7 @@ Axis 5: Advanced Justification
 
 Extract and record:
 - `quality_label`, `quality_reasoning`
-- `addressed_label`, `addressed_reasoning` (only when `addressed.md` is present. `None` otherwise)
+- `addressed_label`, `addressed_reasoning`. The label is one of `empty`, `addressed`, `ignored`, `false_positive`. Always present
 - `severity_label`, `severity_reasoning`
 - `context_scope_label`, `context_entries[]` (each with diff_line, file_path, why)
 - `advanced_label`, `advanced_reasoning`
@@ -402,7 +402,7 @@ Before re-evaluating the axis labels, verify that the task data is internally co
 
 This is the core of the review. For each axis, independently re-derive what the label should be using the original evidence (comment body, diff, comment analysis). Then compare your independent assessment against the task's label.
 
-**IMPORTANT:** Use the axis definitions from `docs/axis-1-quality.md`, `docs/axis-2-addressed.md` (merged PRs only), `docs/axis-3-severity.md`, `docs/axis-4-context-scope.md`, and `docs/axis-5-advanced.md` as your evaluation criteria. Also consult `DOCUMENTATION.md` sections 9 (Justification Quality Standards), 11 (FAQ), 12 (Common Mistakes), and 13 (Tips) for edge cases and pitfalls. Read them if needed.
+**IMPORTANT:** Use the axis definitions from `docs/axis-1-quality.md`, `docs/axis-2-addressed.md`, `docs/axis-3-severity.md`, `docs/axis-4-context-scope.md`, and `docs/axis-5-advanced.md` as your evaluation criteria. Also consult `DOCUMENTATION.md` sections 9 (Justification Quality Standards), 11 (FAQ), 12 (Common Mistakes), and 13 (Tips) for edge cases and pitfalls. Read them if needed.
 
 **IMPORTANT:** Factor in the data consistency findings from step 3. If the problem was not found at comment_commit, this must influence your quality assessment.
 
@@ -796,7 +796,7 @@ Check if `work/thread.md` exists in the task directory.
 
 Use the same template, field rules, and wording audit as `step-08-generate-output` section 7. In particular:
 
-- Build the Axis and Justification cell from the effective deliverables. When the PR is merged (addressed.md present), order is Quality, Addressed, Severity, Context, Advanced. When not merged, order is Quality, Severity, Context, Advanced. Concatenate with periods between sentences.
+- Build the Axis and Justification cell from the effective deliverables. Order is always Quality, Addressed, Severity, Context, Advanced (Addressed is always present, with value `empty` on non-merged PRs). Concatenate with periods between sentences.
 - The Summary cell describes what the body of the task is saying inside its thread.
 - The Workaround cell describes internal labeling adjustments that were needed (including any made during the review), empty if none.
 - The Status cell is `done`.

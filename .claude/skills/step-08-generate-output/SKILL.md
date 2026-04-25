@@ -1,10 +1,10 @@
 # step-08-generate-output
 
 ## What it does
-Compiles all labeled axes into the final JSON output, validates consistency, and generates the deliverable files ready for submission. The axes are five in total. `Addressed` is only included when the PR is merged. On open or closed-not-merged PRs, `Addressed` is skipped and omitted from the output.
+Compiles all five labeled axes into the final JSON output, validates consistency, and generates the deliverable files ready for submission. `Addressed` is always present using a 4-value enum, with `empty` selected on non-merged PRs.
 
 ## Prerequisites
-- Steps 04, 045, 05, 06, 07 completed (all labeled axes have a status of `done` or `skipped` in `progress.md`)
+- Steps 04, 045, 05, 06, 07 completed (all labeled axes have a status of `done` in `progress.md`)
 
 ## Context
 > See `docs/steps/step10.md` for the submission checklist.
@@ -18,7 +18,7 @@ Compiles all labeled axes into the final JSON output, validates consistency, and
 
 Read `task_info.md`. Extract all labels and their reasoning from the Labels section. Note the `PR Merged Status` field from the Input Data section, written by step-02.
 
-Read `progress.md` to confirm step 045 completed as `done` or `skipped`. If step 045 is missing, fail fast and instruct the user to run the addressed step.
+Read `progress.md` to confirm step 045 completed as `done`. If step 045 is missing or marked anything other than `done`, fail fast and instruct the user to run the addressed step.
 
 Update `progress.md`. step 08 status = `in-progress`, Started = {timestamp ISO 8601}.
 
@@ -26,7 +26,7 @@ Update `progress.md`. step 08 status = `in-progress`, Started = {timestamp ISO 8
 
 Collect from `task_info.md`:
 - **Quality:** {helpful | unhelpful | wrong}
-- **Addressed:** {addressed | ignored | false_positive | SKIPPED}. SKIPPED means the PR was not merged, step 045 flagged it as skipped
+- **Addressed:** {empty | addressed | ignored | false_positive}. The value `empty` is an active selection used when the PR is not merged
 - **Severity:** {nit | moderate | critical}
 - **Context Scope:** {diff | file | repo | external}
 - **Context Array:** [{entries}]
@@ -38,7 +38,7 @@ Run these checks before generating output. If any check fails, report to the use
 
 **Field validation:**
 - [ ] Quality is one of: `helpful`, `unhelpful`, `wrong`
-- [ ] Addressed is one of: `addressed`, `ignored`, `false_positive`, OR the step is marked `skipped` in progress.md because the PR is not merged
+- [ ] Addressed is one of: `empty`, `addressed`, `ignored`, `false_positive`
 - [ ] Severity is one of: `nit`, `moderate`, `critical`
 - [ ] Context Scope is one of: `diff`, `file`, `repo`, `external`
 - [ ] Advanced is one of: `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`
@@ -47,8 +47,8 @@ Run these checks before generating output. If any check fails, report to the use
 - [ ] If context_scope is `external`, the context array may be empty
 
 **Merged-status consistency (GATE, blocking):**
-- If `PR Merged Status` is `merged`, then `Addressed` must have a value from `addressed`, `ignored`, or `false_positive`. A `skipped` state here is a failure, re-run step-045.
-- If `PR Merged Status` is NOT `merged`, then `Addressed` must be `skipped`. Any labeled Addressed value on a non-merged PR is a failure.
+- If `PR Merged Status` is `merged`, then `Addressed` must be one of `addressed`, `ignored`, `false_positive`. The value `empty` is invalid on a merged PR.
+- If `PR Merged Status` is `open` or `closed_not_merged`, then `Addressed` must be exactly `empty`. The merged-only values are invalid on a non-merged PR.
 
 **Scope vs Advanced consistency (GATE, blocking):**
 - If `Context Scope` is `repo` or `external`, then `Advanced` MUST NOT be `False`. Crossing the diff boundary is itself beyond-diff knowledge. That combination is invalid by definition. Report the failure in the form `INVALID. context_scope={value}, advanced=False is internally inconsistent. Re-run step-06 or step-07 before proceeding.` and STOP.
@@ -58,9 +58,7 @@ Run these checks before generating output. If any check fails, report to the use
 
 ### 4. Generate labels.json
 
-Write `tasks/{date}/{id}/deliverables/labels.json`.
-
-When `Addressed` has a value (PR was merged), include the field:
+Write `tasks/{date}/{id}/deliverables/labels.json`. The `addressed` field is always present and uses one of the four enum values. On non-merged PRs the value is the string `empty`.
 
 ```json
 {
@@ -79,27 +77,9 @@ When `Addressed` has a value (PR was merged), include the field:
 }
 ```
 
-When `Addressed` is `skipped` (PR not merged), omit the field entirely:
-
-```json
-{
-  "quality": "{value}",
-  "severity": "{value}",
-  "context_scope": "{value}",
-  "context": [
-    {
-      "diff_line": "{value_or_null}",
-      "file_path": "{value}",
-      "why": "{value}"
-    }
-  ],
-  "advanced": "{value}"
-}
-```
-
 **Formatting rules:**
 - Use 2-space indentation
-- `addressed` is only present when the PR is merged. Never emit `"addressed": null`, `""`, or any placeholder. Omit the key entirely on non-merged PRs
+- `addressed` is always present. One of `empty`, `addressed`, `ignored`, `false_positive`. Never emit `null`, `""`, or any other placeholder. The string `empty` is the active selection used on non-merged PRs
 - `advanced` is a string enum. One of `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`. Never a JSON boolean
 - `diff_line` is a string like `"42"` or JSON `null` when empty. Never `""`, `"null"`, or a bare number
 - All string values must be properly escaped
@@ -153,9 +133,9 @@ Write one markdown file per axis inside `tasks/{date}/{id}/deliverables/`.
 {reasoning from step 04}
 ```
 
-#### 5b. `addressed.md` (merged PRs only)
+#### 5b. `addressed.md`
 
-Skip this file entirely when `Addressed` is `skipped`. Generate it only when the PR is merged and step 045 produced a label.
+Always generate this file. Step 045 always produces one of the four enum values.
 
 ```markdown
 # Addressed: {id}
@@ -165,7 +145,7 @@ Skip this file entirely when `Addressed` is `skipped`. Generate it only when the
 - **PR:** {pull_request_url}
 
 ## Label
-**{addressed | ignored | false_positive}**
+**{empty | addressed | ignored | false_positive}**
 
 ## Reasoning
 {reasoning from step 045}
@@ -248,18 +228,12 @@ Field rules:
 - **Task Number:** the task id from `task_info.md`.
 - **Summary:** one or two short sentences describing what the body of the task is saying inside its thread. Focus on what the reply is actually communicating, not just what the thread is about. Plain English. Respect all wording rules from `CLAUDE.md`: no em-dashes, no en-dashes, no semicolons, no colons outside file paths, no parentheses in prose, no smart quotes. If you used a parenthetical, rewrite as a separate sentence.
 - **Workaround:** describes any internal adjustment we had to make in order to label the task, for example reinterpreting the body through the thread context, working around a missing commit, or treating an ambiguous reply as a specific stance. Leave empty if no adjustment was needed. Same wording rules apply.
-- **Axis and Justification:** a single cell that lists the axes and their justifications, in platform order and exact format:
-
-  When the PR is merged (Addressed was labeled), the cell has 5 axis blocks:
+- **Axis and Justification:** a single cell that lists the five axes and their justifications, in platform order and exact format:
 
   `Quality {label}. {justification}. Addressed {label}. {justification}. Severity {label}. {justification}. Context {label}. {justification}. Advanced {label}. {justification}.`
 
-  When the PR is not merged (Addressed was skipped), omit the Addressed block entirely. The cell has 4 axis blocks:
-
-  `Quality {label}. {justification}. Severity {label}. {justification}. Context {label}. {justification}. Advanced {label}. {justification}.`
-
-  Use the labels and reasoning already recorded in `task_info.md` and the per-axis `.md` deliverables. Concatenate with periods between sentences. Do NOT use semicolons, dashes, colons outside file paths, or parentheses to separate the parts. Keep each justification short, one or two sentences per axis. If the reasoning in a deliverable contains forbidden characters, rewrite them into clean prose here before placing them in the cell.
-- **Status:** always `done` at this point. The row is only written after the axes have been labeled and validated.
+  The Addressed block is always present. When the PR is not merged, the value is `empty` and the justification states the merge status. Use the labels and reasoning already recorded in `task_info.md` and the per-axis `.md` deliverables. Concatenate with periods between sentences. Do NOT use semicolons, dashes, colons outside file paths, or parentheses to separate the parts. Keep each justification short, one or two sentences per axis. If the reasoning in a deliverable contains forbidden characters, rewrite them into clean prose here before placing them in the cell.
+- **Status:** always `done` at this point. The row is only written after the five axes have been labeled and validated.
 - **Other task with the same issue / case:** always empty. This column is filled manually by the user. The pipeline never writes into it.
 
 Single-line cell rule: every cell in the row must be a single line. Markdown tables break when a cell contains a literal newline. If a justification is long, rewrite it as shorter sentences joined by a period and a space, do not break it across lines.
@@ -275,7 +249,7 @@ Add to the Output section. Include the `addressed.md` line only when the PR was 
 - **labels.json:** deliverables/labels.json
 - **context.json:** deliverables/context.json
 - **quality.md:** deliverables/quality.md
-- **addressed.md:** deliverables/addressed.md (merged PRs only)
+- **addressed.md:** deliverables/addressed.md
 - **severity.md:** deliverables/severity.md
 - **context_scope.md:** deliverables/context_scope.md
 - **advanced.md:** deliverables/advanced.md
@@ -302,14 +276,14 @@ Output files:
   - deliverables/labels.json (for submission)
   - deliverables/context.json (context table for platform)
   - deliverables/quality.md
-  - deliverables/addressed.md (merged PRs only)
+  - deliverables/addressed.md
   - deliverables/severity.md
   - deliverables/context_scope.md
   - deliverables/advanced.md
 
 Labels summary:
   Quality:       {value}
-  Addressed:     {value or SKIPPED (PR not merged)}
+  Addressed:     {value}
   Severity:      {value}
   Context Scope: {value}
   Advanced:      {value}
