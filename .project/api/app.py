@@ -145,17 +145,61 @@ def parse_quality_or_severity_or_advanced(text, axis_num):
 
 
 def parse_context_scope(text):
-    """Extract {label, entries[]} from context_scope.md."""
+    """Extract {label, entries[]} from context_scope.md.
+
+    Accepts three formats for the entries block:
+
+    1. Markdown pipe-table.       `| diff_line | file_path | why |`
+    2. Platform copy-paste.       Each row laid out as 4 plain lines
+       (row index, diff_line, file_path, why).
+    3. JSON code block.           Fenced ```json containing an array
+       of {diff_line, file_path, why} objects.
+
+    The parser tries the JSON form first (cheapest and unambiguous when
+    present), then falls back to the table-header search used by formats
+    1 and 2.
+    """
     if not text:
         return {"label": "", "entries": []}
     lines = [l.rstrip() for l in text.splitlines()]
     labels = {"diff", "file", "repo", "external"}
     label = ""
-    table_start = -1
     for i, l in enumerate(lines):
         clean = l.strip().strip("*_`").strip().lower()
         if not label and clean in labels:
             label = clean
+            break
+
+    # Format 3: ```json ... ``` block holding an array of context entries.
+    json_block = re.search(r"```(?:json)?\s*\n(\[[\s\S]*?\])\s*\n```", text)
+    if json_block:
+        try:
+            arr = json.loads(json_block.group(1))
+            entries = []
+            for e in arr:
+                if not isinstance(e, dict):
+                    continue
+                dl = e.get("diff_line")
+                fp = e.get("file_path", "")
+                wy = e.get("why", "")
+                if dl is None:
+                    dl_str = ""
+                else:
+                    dl_str = str(dl)
+                if dl_str or fp or wy:
+                    entries.append({
+                        "diff_line": dl_str,
+                        "file_path": str(fp) if fp is not None else "",
+                        "why": str(wy) if wy is not None else "",
+                    })
+            if entries:
+                return {"label": label, "entries": entries}
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # Formats 1 and 2: locate the `diff_line file_path why` header row.
+    table_start = -1
+    for i, l in enumerate(lines):
         s = l.strip().lower()
         if "diff_line" in s and "file_path" in s and "why" in s:
             table_start = i

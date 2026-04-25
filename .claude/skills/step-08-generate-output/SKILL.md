@@ -189,6 +189,9 @@ Skip this file entirely when `Addressed` is `skipped`. Generate it only when the
 
 #### 5d. `context_scope.md`
 
+> Use a markdown pipe-table for the Context Evidence rows. Do NOT emit a JSON code block. The API parser tolerates both formats but the pipe-table is the canonical form. JSON blocks make per-row diffs noisier and harder for `/review` to edit.
+
+
 ```markdown
 # Context Scope: {id}
 
