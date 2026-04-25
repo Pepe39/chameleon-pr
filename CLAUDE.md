@@ -55,6 +55,27 @@ Skip ONLY when BOTH tests are true. If test 1 fails (no explicit reference to an
 
 When working on a task and you see `skip_flag.md` in the task directory, do not run any step. Relay the flag message to the user and stop. `/run` respects this as an idempotency signal so re-invocations of a flagged task never resume labeling.
 
+## Comment not found in discussion (skip, release, flag)
+
+If the comment cannot be located at `discussion_url`, the task cannot be labeled. The body that the platform pasted has no anchor on GitHub, which means the diff line, the surrounding context, and the thread are all unverifiable. Without that anchor every axis becomes guesswork.
+
+Two sub-cases trigger this gate:
+
+1. The GitHub API returns 404 for `gh api repos/{nwo}/pulls/comments/{comment_id}`. The comment ID points to nothing. Reasons range from a deleted comment to a wrong ID in the task package.
+2. The API returns a body that does NOT match the `body` field from the task package. The pasted body and the live comment are different content, so we cannot tell which one is the target.
+
+In either case the pipeline must skip the task and flag it. The mechanism reuses the same `skip_flag.md` contract used for comment-references-another-comment.
+
+When the gate matches:
+
+- The detecting step writes `skip_flag.md` at the task root with `**Reason:** Comment not found at discussion_url`.
+- `task_info.md` Status section gets a `SKIP AND FLAG` note explaining whether the comment was missing or mismatched.
+- `progress.md` marks remaining steps as `skipped`.
+- The API returns `status: skipped` with the reason on `/run/status/{id}`.
+- The extension shows the amber skip banner so the attempter releases the task on the platform.
+
+When working on a task and you see `skip_flag.md` mentioning a missing or mismatched comment, do NOT relabel from memory or from the platform's pasted body alone. The contract is to release the task on the platform, not to fabricate evidence. The `body` field cannot be trusted in isolation because we have nothing to verify it against.
+
 ## Platform flags can be over-flagged
 
 The annotation platform's validation rules are regex/heuristic based and can fire on legitimate text. Before editing a deliverable to satisfy a flag, VERIFY the flag is warranted by reading the actual text the validator matched against.

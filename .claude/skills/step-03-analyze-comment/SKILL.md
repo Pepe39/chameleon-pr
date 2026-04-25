@@ -25,7 +25,9 @@ Update `progress.md`: step 03 status = "in-progress", Started = {timestamp ISO 8
 
 ### 2. Verify the comment (GATE)
 
-Open the `discussion_url` using browser tools or `gh` CLI to verify that the comment shown on GitHub matches the `body` field in the input data.
+Step-02 section 2 already verified that the comment exists and that its body matches `inputs.md`. If you reach this step at all, the GATE has passed. This section is defense in depth.
+
+Open the `discussion_url` using browser tools or `gh` CLI to confirm that the comment shown on GitHub matches the `body` field in the input data.
 
 **If the comment is not visible in Files Changed** (common for Outdated comments), use these methods:
 1. **Conversations dropdown** in the Files Changed tab, which lists unresolved, resolved, and outdated conversations.
@@ -37,7 +39,9 @@ Open the `discussion_url` using browser tools or `gh` CLI to verify that the com
 gh api repos/{nwo}/pulls/comments/{comment_id} --jq '.body'
 ```
 
-**If the comment does NOT match the body field:** Report to the user and STOP. Do not continue labeling with mismatched data.
+**If the comment cannot be located at all** (gh api returns 404, or none of the three methods above surface it), trigger the same SKIP AND FLAG path that step-02 section 2 defines. Write `skip_flag.md` with reason `Comment not found at discussion_url (re-checked at step 03)`. Mark progress.md steps 03 through 08 (and 045) as `skipped`. Stop.
+
+**If the comment is found but does NOT match the body field:** trigger the SKIP AND FLAG path with reason `Comment body mismatch between task package and discussion_url (re-checked at step 03)`. Do NOT continue labeling with mismatched data. Do NOT pick whichever body looks more plausible. The platform's pasted body has no anchor we can trust.
 
 ### 2b. Classify comment state
 

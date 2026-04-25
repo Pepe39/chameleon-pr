@@ -20,19 +20,48 @@ Find the task directory and read `task_info.md` to get PR URL, nwo, head_sha, fi
 
 Update `progress.md`: step 02 status = "in-progress", Started = {timestamp ISO 8601}.
 
-### 2. Resolve comment_commit
+### 2. Resolve comment_commit and verify the comment exists (GATE)
 
-The `head_sha` from the task inputs is the tip of the PR branch, but the review comment may have been made on an earlier commit within the PR. Use the GitHub API to resolve the exact commit the comment was anchored to.
+The `head_sha` from the task inputs is the tip of the PR branch, but the review comment may have been made on an earlier commit within the PR. Use the GitHub API to fetch the comment in full so we both verify it exists and resolve the commit it was anchored to.
 
 ```bash
-gh api repos/{nwo}/pulls/comments/{comment_id} --jq '.original_commit_id'
+gh api repos/{nwo}/pulls/comments/{comment_id} --jq '{original_commit_id, body}'
 ```
 
-- Save the result as `comment_commit`.
-- If the call fails (404, auth error, network), add a warning to `task_info.md`:
-  > **Warning:** Could not resolve comment_commit from GitHub API. This may indicate a force push that removed the original commit.
-  Set `comment_commit` to the API-returned value anyway. Do NOT silently fall back to `head_sha`.
-- Update `task_info.md` Input Data section: set `**Comment Commit:**` to the resolved value.
+Three outcomes:
+
+**A. Call returns the comment.** Extract `original_commit_id` and `body`.
+- Save `original_commit_id` as `comment_commit`. Update `task_info.md` Input Data section with `**Comment Commit:**` set to the resolved value.
+- Compare the API `body` against the `body` field from `inputs.md`. Normalize whitespace before comparing. If they do NOT match, trigger the SKIP AND FLAG path below with reason `Comment body mismatch between task package and discussion_url`. The pasted body and the live comment are different content, so we cannot tell which one is the target.
+
+**B. Call returns HTTP 404.** The comment ID points to nothing. The comment was deleted, the ID is wrong, or the PR was deleted. Trigger the SKIP AND FLAG path below with reason `Comment not found at discussion_url (404 from GitHub API)`. Do NOT continue to sections 2b, 2c, 2d, or any later step.
+
+**C. Call fails for any other reason** (auth error, network timeout, rate limit). Add a warning to `task_info.md` and stop the step:
+> **Warning:** Could not fetch comment from GitHub API. Reason: {error summary}.
+Tell the user to retry once the issue is resolved. Do NOT proceed and do NOT trigger SKIP AND FLAG, because we have no evidence that the comment is missing, only that we could not check.
+
+**SKIP AND FLAG path (cases A-mismatch and B):**
+
+1. Stamp `task_info.md` Input Data section with `- **Comment Type:** comment not found at discussion_url (skip, release, flag)`. This overwrites any earlier `Comment Type` line.
+2. Add a note directly under the `## Status` heading:
+   > **SKIP AND FLAG:** {the specific reason from above}. Release this task on the annotation platform and flag it to the batch coordinator.
+3. Write `tasks/{date}/{id}/skip_flag.md` at the task root:
+   ```markdown
+   # SKIP AND FLAG
+
+   **Reason:** {the specific reason from above}
+
+   **Action:** Skip this task in the annotation platform, release it, and flag it to the batch coordinator.
+
+   **Detected at:** step 02, section 2.
+   ```
+4. Update `progress.md`. Set step 02 `Status` to `skipped`, `Completed` to the current ISO 8601 timestamp. Set steps 03 through 08 (and 045) to `skipped` with empty `Started` and `Completed`. Set the top `**Current Step:**` to `SKIPPED (comment not found)` and `**Status:**` to `skipped`. Bump `**Last Updated:**`.
+5. Do NOT run sections 2b, 2c, 2d, or 3 onward. Do NOT fetch the diff. Do NOT clone the repo.
+6. Print the single-line flag to stdout so the runner and API surface it to the extension:
+
+   `SKIP_AND_FLAG: {id} comment not found at discussion_url. Skip, release, flag in the platform.`
+
+7. Stop. Step 02 is done in the skip sense. Return control to `/run`, which detects `skip_flag.md` and stops the pipeline cleanly.
 
 The pipeline uses `comment_commit` (not `head_sha`) for cloning the repo and verifying whether the problem exists. `head_sha` is still used for the PR diff (section 3) because the diff should reflect the full PR scope.
 
