@@ -7,9 +7,9 @@ Labels Axis 2 — Severity. Assesses how severe the issue is that the review com
 - Step 04 completed (Quality labeled)
 
 ## Context
-> See `docs/axis-2-severity.md` for definitions, evaluation criteria, and examples.
+> See `docs/axis-3-severity.md` for definitions, evaluation criteria, and examples.
 > See `docs/steps/step7.md` for the step-by-step process.
-> See `DOCUMENTATION.md` sections 9 (FAQ), 10 (Common Mistakes), and 11 (Tips) for edge cases and pitfalls.
+> See `DOCUMENTATION.md` sections 11 (FAQ), 12 (Common Mistakes), and 13 (Tips) for edge cases and pitfalls.
 
 **Critical reminder:** Severity measures the **issue itself**, NOT the quality or tone of the comment. These axes are independent.
 
@@ -21,6 +21,8 @@ Labels Axis 2 — Severity. Assesses how severe the issue is that the review com
 ### 1. Recover context
 
 Read `task_info.md` — specifically the "Review Comment", "Comment Analysis", and the Quality label from step 04.
+
+If `work/thread.md` exists, read it as well. The body is a nested reply. Use the thread to understand which issue the body is actually pointing at before rating severity. The issue raised by the reply, not by the whole thread, is what you are rating. Do NOT label the ancestor comments.
 
 Update `progress.md`: step 05 status = "in-progress", Started = {timestamp ISO 8601}.
 

@@ -1,4 +1,4 @@
-# Axis 3: Context Scope
+# Axis 4: Context Scope
 
 Determine what level of context a reviewer would need to confidently make this comment. Choose exactly one scope level. Each level includes everything below it. **Pick the broadest scope needed.**
 

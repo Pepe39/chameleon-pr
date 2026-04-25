@@ -1,10 +1,10 @@
 # step-08-generate-output
 
 ## What it does
-Compiles all four axis labels into the final JSON output, validates consistency, and generates the deliverable file ready for submission.
+Compiles all labeled axes into the final JSON output, validates consistency, and generates the deliverable files ready for submission. The axes are five in total. `Addressed` is only included when the PR is merged. On open or closed-not-merged PRs, `Addressed` is skipped and omitted from the output.
 
 ## Prerequisites
-- Steps 04-07 completed (all four axes labeled)
+- Steps 04, 045, 05, 06, 07 completed (all labeled axes have a status of `done` or `skipped` in `progress.md`)
 
 ## Context
 > See `docs/steps/step10.md` for the submission checklist.
@@ -16,18 +16,21 @@ Compiles all four axis labels into the final JSON output, validates consistency,
 
 ### 1. Recover context
 
-Read `task_info.md` — extract all four labels and their reasoning from the Labels section.
+Read `task_info.md`. Extract all labels and their reasoning from the Labels section. Note the `PR Merged Status` field from the Input Data section, written by step-02.
 
-Update `progress.md`: step 08 status = "in-progress", Started = {timestamp ISO 8601}.
+Read `progress.md` to confirm step 045 completed as `done` or `skipped`. If step 045 is missing, fail fast and instruct the user to run the addressed step.
+
+Update `progress.md`. step 08 status = `in-progress`, Started = {timestamp ISO 8601}.
 
 ### 2. Compile labels
 
-Collect from task_info.md:
+Collect from `task_info.md`:
 - **Quality:** {helpful | unhelpful | wrong}
+- **Addressed:** {addressed | ignored | false_positive | SKIPPED}. SKIPPED means the PR was not merged, step 045 flagged it as skipped
 - **Severity:** {nit | moderate | critical}
 - **Context Scope:** {diff | file | repo | external}
 - **Context Array:** [{entries}]
-- **Advanced:** {Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach | False}
+- **Advanced:** {False | Repo-specific conventions | Context outside changed files | Recent language / library updates | Better implementation approach}
 
 ### 3. Validate consistency (GATE)
 
@@ -35,20 +38,48 @@ Run these checks before generating output. If any check fails, report to the use
 
 **Field validation:**
 - [ ] Quality is one of: `helpful`, `unhelpful`, `wrong`
+- [ ] Addressed is one of: `addressed`, `ignored`, `false_positive`, OR the step is marked `skipped` in progress.md because the PR is not merged
 - [ ] Severity is one of: `nit`, `moderate`, `critical`
 - [ ] Context Scope is one of: `diff`, `file`, `repo`, `external`
-- [ ] Advanced is one of: `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`, `False`
+- [ ] Advanced is one of: `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`
 - [ ] Context array is valid JSON (array of objects with diff_line, file_path, why)
 - [ ] If context_scope is `diff`, `file`, or `repo`, the context array has at least 1 entry
 - [ ] If context_scope is `external`, the context array may be empty
 
+**Merged-status consistency (GATE, blocking):**
+- If `PR Merged Status` is `merged`, then `Addressed` must have a value from `addressed`, `ignored`, or `false_positive`. A `skipped` state here is a failure, re-run step-045.
+- If `PR Merged Status` is NOT `merged`, then `Addressed` must be `skipped`. Any labeled Addressed value on a non-merged PR is a failure.
+
+**Scope vs Advanced consistency (GATE, blocking):**
+- If `Context Scope` is `repo` or `external`, then `Advanced` MUST NOT be `False`. Crossing the diff boundary is itself beyond-diff knowledge. That combination is invalid by definition. Report the failure in the form `INVALID. context_scope={value}, advanced=False is internally inconsistent. Re-run step-06 or step-07 before proceeding.` and STOP.
+
 **Independence checks (warnings, not blockers):**
-- If Quality = `wrong` AND Severity = `nit`, flag for review: "Verify: the issue the comment tried to flag is truly nit-level, even though the comment is wrong."
-- If Quality = `helpful` AND Advanced = `False` AND Context Scope = `repo`, flag for review: "Verify: the comment requires repo-level context but is not considered advanced?"
+- If Quality = `wrong` AND Severity = `nit`, flag for review: "Verify. the issue the comment tried to flag is truly nit-level, even though the comment is wrong."
 
 ### 4. Generate labels.json
 
-Write `tasks/{date}/{id}/deliverables/labels.json`:
+Write `tasks/{date}/{id}/deliverables/labels.json`.
+
+When `Addressed` has a value (PR was merged), include the field:
+
+```json
+{
+  "quality": "{value}",
+  "addressed": "{value}",
+  "severity": "{value}",
+  "context_scope": "{value}",
+  "context": [
+    {
+      "diff_line": "{value_or_null}",
+      "file_path": "{value}",
+      "why": "{value}"
+    }
+  ],
+  "advanced": "{value}"
+}
+```
+
+When `Addressed` is `skipped` (PR not merged), omit the field entirely:
 
 ```json
 {
@@ -62,15 +93,17 @@ Write `tasks/{date}/{id}/deliverables/labels.json`:
       "why": "{value}"
     }
   ],
-  "advanced": "{category_or_False}"
+  "advanced": "{value}"
 }
 ```
 
 **Formatting rules:**
 - Use 2-space indentation
-- `advanced` must be a string matching one of the platform categories or `"False"`
-- `diff_line` must be a string (e.g., `"42"`) or JSON `null` when empty. Never use `""`, `"null"`, or a bare number
+- `addressed` is only present when the PR is merged. Never emit `"addressed": null`, `""`, or any placeholder. Omit the key entirely on non-merged PRs
+- `advanced` is a string enum. One of `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`. Never a JSON boolean
+- `diff_line` is a string like `"42"` or JSON `null` when empty. Never `""`, `"null"`, or a bare number
 - All string values must be properly escaped
+- Axis key order in the JSON follows the platform. `quality`, `addressed`, `severity`, `context_scope`, `context`, `advanced`
 
 ### 5. Generate context.json
 
@@ -120,7 +153,25 @@ Write one markdown file per axis inside `tasks/{date}/{id}/deliverables/`.
 {reasoning from step 04}
 ```
 
-#### 5b. `severity.md`
+#### 5b. `addressed.md` (merged PRs only)
+
+Skip this file entirely when `Addressed` is `skipped`. Generate it only when the PR is merged and step 045 produced a label.
+
+```markdown
+# Addressed: {id}
+
+- **Comment:** {first 80 chars of body}...
+- **File:** {file_path}:{diff_line}
+- **PR:** {pull_request_url}
+
+## Label
+**{addressed | ignored | false_positive}**
+
+## Reasoning
+{reasoning from step 045}
+```
+
+#### 5c. `severity.md`
 
 ```markdown
 # Severity: {id}
@@ -136,7 +187,7 @@ Write one markdown file per axis inside `tasks/{date}/{id}/deliverables/`.
 {reasoning from step 05}
 ```
 
-#### 5c. `context_scope.md`
+#### 5d. `context_scope.md`
 
 ```markdown
 # Context Scope: {id}
@@ -157,7 +208,7 @@ Write one markdown file per axis inside `tasks/{date}/{id}/deliverables/`.
 {reasoning from step 06}
 ```
 
-#### 5d. `advanced.md`
+#### 5e. `advanced.md`
 
 ```markdown
 # Advanced: {id}
@@ -167,52 +218,95 @@ Write one markdown file per axis inside `tasks/{date}/{id}/deliverables/`.
 - **PR:** {pull_request_url}
 
 ## Label
-**{Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach | False}**
+**{Repo-specific conventions | Context outside changed files | Recent language / library updates | Better implementation approach | False}**
 
 ## Reasoning
 {reasoning from step 07}
 ```
 
-### 7. Update task_info.md
+### 7. Generate to_report.md (nested threads only)
 
-Add to the Output section:
+Check if `work/thread.md` exists. If it does NOT exist, skip this section. `to_report.md` is only generated for tasks whose body is a nested reply.
+
+If it DOES exist, write `tasks/{date}/{id}/to_report.md` with a single-row table that summarizes the task for offline reporting. The file is consumed by the user to build a combined report across nested-comment tasks. The extension does not touch it.
+
+Template:
+
+```markdown
+# Task report
+
+| Task Number | Summary | Workaround | Axis and Justification | Status | Other task with the same issue / case |
+|---|---|---|---|---|---|
+| {task_id} | {summary} | {workaround} | {axis_block} | done | |
+```
+
+Field rules:
+
+- **Task Number:** the task id from `task_info.md`.
+- **Summary:** one or two short sentences describing what the body of the task is saying inside its thread. Focus on what the reply is actually communicating, not just what the thread is about. Plain English. Respect all wording rules from `CLAUDE.md`: no em-dashes, no en-dashes, no semicolons, no colons outside file paths, no parentheses in prose, no smart quotes. If you used a parenthetical, rewrite as a separate sentence.
+- **Workaround:** describes any internal adjustment we had to make in order to label the task, for example reinterpreting the body through the thread context, working around a missing commit, or treating an ambiguous reply as a specific stance. Leave empty if no adjustment was needed. Same wording rules apply.
+- **Axis and Justification:** a single cell that lists the axes and their justifications, in platform order and exact format:
+
+  When the PR is merged (Addressed was labeled), the cell has 5 axis blocks:
+
+  `Quality {label}. {justification}. Addressed {label}. {justification}. Severity {label}. {justification}. Context {label}. {justification}. Advanced {label}. {justification}.`
+
+  When the PR is not merged (Addressed was skipped), omit the Addressed block entirely. The cell has 4 axis blocks:
+
+  `Quality {label}. {justification}. Severity {label}. {justification}. Context {label}. {justification}. Advanced {label}. {justification}.`
+
+  Use the labels and reasoning already recorded in `task_info.md` and the per-axis `.md` deliverables. Concatenate with periods between sentences. Do NOT use semicolons, dashes, colons outside file paths, or parentheses to separate the parts. Keep each justification short, one or two sentences per axis. If the reasoning in a deliverable contains forbidden characters, rewrite them into clean prose here before placing them in the cell.
+- **Status:** always `done` at this point. The row is only written after the axes have been labeled and validated.
+- **Other task with the same issue / case:** always empty. This column is filled manually by the user. The pipeline never writes into it.
+
+Single-line cell rule: every cell in the row must be a single line. Markdown tables break when a cell contains a literal newline. If a justification is long, rewrite it as shorter sentences joined by a period and a space, do not break it across lines.
+
+Wording audit before saving: scan the generated row for `—`, `–`, `;`, `:` outside file paths, and `(` `)`. Rewrite any matches before writing the file.
+
+### 8. Update task_info.md
+
+Add to the Output section. Include the `addressed.md` line only when the PR was merged and Addressed was labeled:
 
 ```markdown
 ## Output
 - **labels.json:** deliverables/labels.json
 - **context.json:** deliverables/context.json
 - **quality.md:** deliverables/quality.md
+- **addressed.md:** deliverables/addressed.md (merged PRs only)
 - **severity.md:** deliverables/severity.md
 - **context_scope.md:** deliverables/context_scope.md
 - **advanced.md:** deliverables/advanced.md
+- **to_report.md:** to_report.md (only if work/thread.md exists)
 - **Generated:** {timestamp ISO 8601}
 - **Validation:** PASSED / PASSED WITH WARNINGS
 ```
 
-### 8. Update progress
+### 9. Update progress
 
-Update `progress.md`: step 08 status = "done", Completed = {timestamp ISO 8601}.
+Update `progress.md`. step 08 status = `done`, Completed = {timestamp ISO 8601}.
 
-Set Current Step to: "ALL COMPLETE"
+Set Current Step to `ALL COMPLETE`.
 
-### 9. Final message
+### 10. Final message
 
-Display:
+Display. Include the Addressed line only when the PR was merged and the file was generated:
 
 ```
 == Task {id} COMPLETE ==
-All 8 steps completed.
+All steps completed.
 
 Output files:
   - deliverables/labels.json (for submission)
   - deliverables/context.json (context table for platform)
   - deliverables/quality.md
+  - deliverables/addressed.md (merged PRs only)
   - deliverables/severity.md
   - deliverables/context_scope.md
   - deliverables/advanced.md
 
 Labels summary:
   Quality:       {value}
+  Addressed:     {value or SKIPPED (PR not merged)}
   Severity:      {value}
   Context Scope: {value}
   Advanced:      {value}

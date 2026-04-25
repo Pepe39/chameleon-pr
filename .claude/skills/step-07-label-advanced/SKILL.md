@@ -7,8 +7,8 @@ Labels Axis 4 — Advanced. Derives the Advanced label from Context Scope using 
 - Step 06 completed (Context Scope labeled)
 
 ## Context
-> See `docs/axis-4-advanced.md` for the mapping rule and definitions.
-> See `DOCUMENTATION.md` section 7 (Axis 4) for the rationale.
+> See `docs/axis-5-advanced.md` for the mapping rule and definitions.
+> See `DOCUMENTATION.md` section 8 (Axis 5. Advanced) for the rationale.
 
 ## Arguments
 - `id` (required): Task ID
@@ -18,6 +18,8 @@ Labels Axis 4 — Advanced. Derives the Advanced label from Context Scope using 
 ### 1. Recover context
 
 Read `task_info.md` — specifically the Context Scope label from step 06.
+
+If `work/thread.md` exists, the body is a nested reply. Thread context does not change Axis 4 by itself. A reply inside a thread is not automatically advanced. The mapping below still drives the label.
 
 Update `progress.md`: step 07 status = "in-progress", Started = {timestamp ISO 8601}.
 
@@ -44,7 +46,7 @@ If Context Scope is `repo` or `external`, select the category that best explains
 |---|---|
 | **Repo-specific conventions** | Pertains to conventions, patterns, or architectural decisions specific to this repo. |
 | **Context outside changed files** | Requires knowledge from files not touched by the PR. |
-| **Recent language/library updates** | Requires awareness of recent or non-obvious language/framework behavior. |
+| **Recent language / library updates** | Requires awareness of recent or non-obvious language/framework behavior. |
 | **Better implementation approach** | Suggests a fundamentally better design, algorithm, or API usage (not just style). |
 
 If more than one category applies, pick the primary driver.
@@ -62,7 +64,7 @@ Add to the Labels section:
 
 ```markdown
 ### Advanced
-- **Label:** {Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach | False}
+- **Label:** {Repo-specific conventions | Context outside changed files | Recent language / library updates | Better implementation approach | False}
 - **Reasoning:** {1-2 sentences explaining the mapping derivation}
 ```
 

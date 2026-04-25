@@ -98,11 +98,16 @@ function scrapeReviewPage() {
     }
 
     const current = {
-      quality:  { label: selVal('Axis 1: Quality'),       reasoning: justFor('Axis 1: Quality') },
-      severity: { label: selVal('Axis 2: Severity'),      reasoning: justFor('Axis 2: Severity') },
-      advanced: { label: selVal('Axis 4: Advanced'),      reasoning: justFor('Axis 4: Advanced') },
-      context_scope: { label: selVal('Axis 3: Context Scope'), entries: [] },
+      quality:       { label: selVal('Axis 1: Quality'),   reasoning: justFor('Axis 1: Quality') },
+      addressed:     { label: selVal('Axis 2: Addressed'), reasoning: justFor('Axis 2: Addressed') },
+      severity:      { label: selVal('Axis 3: Severity'),  reasoning: justFor('Axis 3: Severity') },
+      context_scope: { label: selVal('Axis 4: Context'),   entries: [] },
+      advanced:      { label: selVal('Axis 5: Advanced'),  reasoning: justFor('Axis 5: Advanced') },
     };
+    // Drop the Addressed block if the platform did not render it (open PRs omit the section).
+    if (!current.addressed.label && !current.addressed.reasoning) {
+      delete current.addressed;
+    }
 
     // Context entries from the table
     const tbl = Array.from(document.querySelectorAll('table'))
@@ -268,7 +273,9 @@ function scrapeTaskPage() {
 }
 
 // =========================================================
-// INJECTED: Fill deliverables (4 axes) back into the platform
+// INJECTED: Fill deliverables (5 axes) back into the platform
+// Axis 2 Addressed is only filled on merged PRs, the platform hides the
+// section on open PRs and the pipeline omits the `addressed` key.
 // =========================================================
 function fillDeliverablesPage(deliverables) {
   const delay = ms => new Promise(r => setTimeout(r, ms));
@@ -458,25 +465,33 @@ function fillDeliverablesPage(deliverables) {
   }
 
   async function run() {
-    const q = deliverables.quality || {};
-    const s = deliverables.severity || {};
-    const c = deliverables.context_scope || {};
-    const a = deliverables.advanced || {};
+    const q  = deliverables.quality || {};
+    const ad = deliverables.addressed || null;
+    const s  = deliverables.severity || {};
+    const c  = deliverables.context_scope || {};
+    const a  = deliverables.advanced || {};
 
     await fillAxis('Axis 1: Quality', q.label || '', q.reasoning || '');
-    await fillAxis('Axis 2: Severity', s.label || '', s.reasoning || '');
 
-    // Axis 3: label + entries
-    const ctxSection = findSection('Axis 3: Context');
+    // Axis 2: Addressed is only filled when the PR was merged. For open PRs,
+    // the API omits the `addressed` key and the platform hides the section.
+    if (ad && ad.label && findSection('Axis 2: Addressed')) {
+      await fillAxis('Axis 2: Addressed', ad.label || '', ad.reasoning || '');
+    }
+
+    await fillAxis('Axis 3: Severity', s.label || '', s.reasoning || '');
+
+    // Axis 4: Context label + entries
+    const ctxSection = findSection('Axis 4: Context');
     if (ctxSection && c.label) {
       if (await clickRadio(ctxSection, c.label)) results.filled++;
-      else results.errors.push(`Axis 3: label "${c.label}" not found`);
+      else results.errors.push(`Axis 4: label "${c.label}" not found`);
     }
     if (Array.isArray(c.entries) && c.entries.length) {
       await fillContextEntries(c.entries);
     }
 
-    await fillAxis('Axis 4: Advanced', a.label || '', a.reasoning || '');
+    await fillAxis('Axis 5: Advanced', a.label || '', a.reasoning || '');
 
     // Quality Score: 1-5 star buttons under "Quality Score" label
     if (deliverables.quality_score) {

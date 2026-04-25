@@ -1,4 +1,4 @@
-# Axis 2: Severity
+# Axis 3: Severity
 
 Assess how severe the **issue itself** is that the review comment points out. Severity measures the issue, NOT the quality of the comment.
 

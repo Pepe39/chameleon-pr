@@ -1,20 +1,26 @@
-# Step 9: Label Axis 4 — Advanced
+# Step 9: Label Axis 4. Advanced
+
+> Advanced is a 5-value string enum, not a boolean. Pick exactly one of `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`.
 
 ## What to Do
 
-1. Ask yourself: "Could a reviewer make this comment by looking only at the changed lines in the diff?"
-2. If the answer is **yes** -> `false`
-3. If the answer is **no**, check whether the comment meets at least one of these criteria:
+1. Read the Context Scope label from the preceding step.
+2. Apply the deterministic mapping:
+   - `diff` or `file` maps to `False`
+   - `repo` or `external` maps to one of the four non-False values
+3. If Context Scope is `repo` or `external`, pick the value that best describes which beyond-diff knowledge the reviewer relied on:
 
-| Criterion | Example |
+| Value | Example |
 |---|---|
 | Repo-specific conventions | "We use the Repository pattern here, not direct ORM access" |
-| Context from files not touched by the PR | "This breaks the interface defined in `base.ts`" |
-| Recent or non-obvious language/library features | "Since React 18, `useEffect` has different cleanup in StrictMode" |
-| Fundamentally better implementation approach | "You should use a bloom filter here instead of iterating the list" |
+| Context outside changed files | "This breaks the interface defined in `base.ts`" |
+| Recent language / library updates | "Since React 18, `useEffect` has different cleanup in StrictMode" |
+| Better implementation approach | "You should use a bloom filter here instead of iterating the list" |
 
-4. If it meets at least one -> `true`. If it meets none -> `false`.
+4. If more than one value applies, pick the primary driver.
+
+**Hard rule.** `repo` or `external` scope with `advanced = "False"` is invalid. If you reach that combination, one of the two labels is wrong. Go back and re-check scope.
 
 ## Goal of This Step
 
-Distinguish between comments that are evident from reading the diff and comments that require deeper knowledge. A complex but visible logic error in the diff is `false`. A simple comment that requires knowing how a base class works in another file is `true`. Advanced measures the source of knowledge, not the difficulty of the analysis.
+Distinguish between comments that are evident from reading the diff and comments that require deeper knowledge. A complex but visible logic error in the diff is `False`. A simple comment that requires knowing how a base class works in another file is `Context outside changed files`. Advanced measures the source of knowledge, not the difficulty of the analysis.

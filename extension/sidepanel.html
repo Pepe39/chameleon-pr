@@ -6,7 +6,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Code Review Labeler</h1>
+    <h1>Code Review Labeler <span id="extVersion" class="version-tag"></span></h1>
 
     <div class="tabs">
       <button class="tab active" data-tab="task">Task</button>
@@ -27,6 +27,7 @@
       <div id="scrapePreview" class="card hidden">
         <details open>
           <summary>Scraped Inputs</summary>
+          <div id="threadBadge" class="thread-badge hidden"></div>
           <div id="inputsList"></div>
           <div id="missingWarn" class="warn hidden"></div>
         </details>

@@ -2,11 +2,12 @@
 
 ## What to Do
 
-1. Compile your 4 labels into the JSON output format:
+1. Compile your labels into the JSON output format. The `addressed` field is only included when the PR is merged. Omit it entirely on open PRs.
 
 ```json
 {
   "quality": "helpful | unhelpful | wrong",
+  "addressed": "addressed | ignored | false_positive",
   "severity": "nit | moderate | critical",
   "context_scope": "diff | file | repo | external",
   "context": [
@@ -16,7 +17,7 @@
       "why": "Short description of why this context matters"
     }
   ],
-  "advanced": true | false
+  "advanced": "False | Repo-specific conventions | Context outside changed files | Recent language / library updates | Better implementation approach"
 }
 ```
 
@@ -24,14 +25,16 @@
 
 - [ ] Verified that the comment in the discussion matches the `body` field
 - [ ] Quality is based on factual correctness and usefulness, not personal opinion
+- [ ] Addressed is filled **only** when the PR is merged, omitted otherwise
 - [ ] Severity rates the issue itself, not the tone of the comment
 - [ ] Context scope reflects the broadest level of context needed
 - [ ] The context array lists all pieces of evidence used
-- [ ] Advanced is based on the source of knowledge, not the difficulty
-- [ ] All four axes were evaluated independently
+- [ ] Advanced is the string enum value, not `true/false`
+- [ ] `repo` or `external` scope is never paired with `advanced = "False"`
+- [ ] All five axes were evaluated independently
 
 3. Submit your labels in the annotation platform.
 
 ## Goal of This Step
 
-Produce a complete, consistent, and verified record of your labels. The final checklist prevents the most common errors (such as coupling Quality with Severity or inflating the scope).
+Produce a complete, consistent, and verified record of your labels. The final checklist prevents the most common errors such as coupling Quality with Severity, inflating the scope, or pairing `repo` scope with `advanced = "False"`.

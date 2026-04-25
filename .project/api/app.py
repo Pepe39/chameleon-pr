@@ -94,19 +94,26 @@ def run_claude(task_id, label="RUN", command="run", mode="auto", model=None):
     return True, result
 
 
-def parse_quality_or_severity_or_advanced(text, axis_num):
-    """Extract {label, reasoning} from a deliverable .md (Axis 1, 2 or 4)."""
+def parse_axis_md(text, axis_kind):
+    """Extract {label, reasoning} from a deliverable .md.
+
+    `axis_kind` is one of 'quality', 'addressed', 'severity', 'advanced'.
+    Each kind has its own enum of valid labels. The function tolerates both
+    forms of the Advanced enum slash spacing because some platform copies use
+    "Recent language/library updates" while the canonical form has spaces.
+    """
     if not text:
         return {"label": "", "reasoning": ""}
-    # Find a line that is just one of the known labels
     lines = [l.strip() for l in text.splitlines()]
     label_sets = {
-        1: {"helpful", "unhelpful", "wrong"},
-        2: {"nit", "moderate", "critical"},
-        4: {"repo-specific conventions", "context outside changed files",
-            "recent language/library updates", "better implementation approach", "false"},
+        "quality":   {"helpful", "unhelpful", "wrong"},
+        "addressed": {"addressed", "ignored", "false_positive"},
+        "severity":  {"nit", "moderate", "critical"},
+        "advanced":  {"repo-specific conventions", "context outside changed files",
+                      "recent language / library updates", "recent language/library updates",
+                      "better implementation approach", "false"},
     }
-    labels = label_sets.get(axis_num, set())
+    labels = label_sets.get(axis_kind, set())
     label = ""
     label_idx = -1
     for i, l in enumerate(lines):
@@ -115,6 +122,9 @@ def parse_quality_or_severity_or_advanced(text, axis_num):
             label = clean
             label_idx = i
             break
+    # Normalize Advanced enum to the canonical spaced form
+    if axis_kind == "advanced" and label == "recent language/library updates":
+        label = "recent language / library updates"
     # Reasoning = everything after a "Reasoning" or "Justification" heading
     reasoning = ""
     for i in range(label_idx + 1, len(lines)):
@@ -123,6 +133,15 @@ def parse_quality_or_severity_or_advanced(text, axis_num):
             reasoning = "\n".join(lines[i + 1:]).strip()
             break
     return {"label": label, "reasoning": reasoning}
+
+
+# Back-compat shim. Old call sites used axis numbers (1, 2, 4) under the old
+# 4-axis layout where Severity was Axis 2 and Advanced was Axis 4. The new
+# layout adds Addressed at Axis 2 and shifts Severity to 3, Context to 4,
+# Advanced to 5. Keep the shim so external callers do not break.
+def parse_quality_or_severity_or_advanced(text, axis_num):
+    kind_map = {1: "quality", 2: "severity", 4: "advanced", 3: "severity", 5: "advanced"}
+    return parse_axis_md(text, kind_map.get(axis_num, "quality"))
 
 
 def parse_context_scope(text):
@@ -192,24 +211,66 @@ def parse_context_scope(text):
     return {"label": label, "entries": entries}
 
 
+def read_skip_flag(task_dir):
+    """Return {"reason": str} if skip_flag.md exists, else None.
+
+    Contract: step-02 section 2d writes skip_flag.md at the task root when the
+    comment references another comment (not code). The file is the signal that
+    the pipeline deliberately stopped. The API surfaces this as a "skipped"
+    status so the extension can tell the attempter to release the task on the
+    platform.
+
+    The extracted `reason` is the plain-text content of the `Reason:` line for
+    the extension banner. If the marker is missing, fall back to the first
+    non-heading, non-empty line of the file.
+    """
+    p = task_dir / "skip_flag.md"
+    if not p.is_file():
+        return None
+    try:
+        text = p.read_text(encoding="utf-8")
+    except Exception:
+        return None
+    reason = ""
+    for line in text.splitlines():
+        s = line.strip()
+        low = s.lower()
+        if low.startswith("**reason:**") or low.startswith("reason:"):
+            reason = re.sub(r"(?i)^\*{0,2}reason:\*{0,2}\s*", "", s).strip()
+            break
+    if not reason:
+        for line in text.splitlines():
+            s = line.strip()
+            if s and not s.startswith("#"):
+                reason = s
+                break
+    return {"reason": reason or text.strip()}
+
+
 def read_deliverables(task_dir):
+    """Read all axis deliverables. Addressed is only included when the
+    pipeline produced `addressed.md`, which only happens on merged PRs."""
     d = task_dir / "deliverables"
     if not d.is_dir():
         return None
-    files = {
+    required = {
         "quality": d / "quality.md",
         "severity": d / "severity.md",
         "context_scope": d / "context_scope.md",
         "advanced": d / "advanced.md",
     }
-    if not all(p.is_file() and p.stat().st_size > 0 for p in files.values()):
+    if not all(p.is_file() and p.stat().st_size > 0 for p in required.values()):
         return None
-    return {
-        "quality": parse_quality_or_severity_or_advanced(files["quality"].read_text(encoding="utf-8"), 1),
-        "severity": parse_quality_or_severity_or_advanced(files["severity"].read_text(encoding="utf-8"), 2),
-        "context_scope": parse_context_scope(files["context_scope"].read_text(encoding="utf-8")),
-        "advanced": parse_quality_or_severity_or_advanced(files["advanced"].read_text(encoding="utf-8"), 4),
+    out = {
+        "quality": parse_axis_md(required["quality"].read_text(encoding="utf-8"), "quality"),
+        "severity": parse_axis_md(required["severity"].read_text(encoding="utf-8"), "severity"),
+        "context_scope": parse_context_scope(required["context_scope"].read_text(encoding="utf-8")),
+        "advanced": parse_axis_md(required["advanced"].read_text(encoding="utf-8"), "advanced"),
     }
+    addressed_path = d / "addressed.md"
+    if addressed_path.is_file() and addressed_path.stat().st_size > 0:
+        out["addressed"] = parse_axis_md(addressed_path.read_text(encoding="utf-8"), "addressed")
+    return out
 
 
 # ---------- Routes ----------
@@ -219,6 +280,56 @@ def status():
     return jsonify({"ok": True})
 
 
+@app.route("/thread-check", methods=["GET"])
+def thread_check():
+    """Given nwo + comment_id, walk the in_reply_to_id chain and report nesting.
+
+    Returns {is_nested: bool, ancestor_count: int}. Used by the extension to flag
+    nested-reply tasks before running the pipeline.
+    """
+    nwo = (request.args.get("nwo") or "").strip()
+    comment_id = (request.args.get("comment_id") or "").strip()
+    if not nwo or not comment_id:
+        return jsonify({"error": "nwo and comment_id required"}), 400
+
+    ancestor_count = 0
+    current_id = comment_id
+    seen = set()
+    try:
+        while True:
+            if current_id in seen:
+                break
+            seen.add(current_id)
+            proc = subprocess.run(
+                ["gh", "api", f"repos/{nwo}/pulls/comments/{current_id}",
+                 "--jq", ".in_reply_to_id // empty"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode != 0:
+                if ancestor_count == 0:
+                    return jsonify({
+                        "error": "gh api failed",
+                        "stderr": (proc.stderr or "")[:500],
+                    }), 502
+                break
+            parent = (proc.stdout or "").strip()
+            if not parent or parent == "null":
+                break
+            ancestor_count += 1
+            current_id = parent
+            if ancestor_count > 50:
+                break
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "gh api timeout"}), 504
+    except FileNotFoundError:
+        return jsonify({"error": "gh CLI not available"}), 500
+
+    return jsonify({
+        "is_nested": ancestor_count > 0,
+        "ancestor_count": ancestor_count,
+    })
+
+
 @app.route("/run", methods=["POST"])
 def run():
     data = request.get_json(silent=True) or {}
@@ -226,9 +337,12 @@ def run():
     if not task_id:
         return jsonify({"error": "task_id required"}), 400
 
-    # Already labeled?
+    # Already labeled or already flagged?
     existing = find_task_dir(task_id)
     if existing:
+        skip = read_skip_flag(existing)
+        if skip:
+            return jsonify({"status": "skipped", "reason": skip["reason"]})
         deliv = read_deliverables(existing)
         if deliv:
             return jsonify({"status": "done", "deliverables": deliv})
@@ -257,6 +371,19 @@ def _worker(task_id, task_dir, model=None):
             with _state_lock:
                 jobs[task_id] = {"status": "error", "error": result.get("error"), "deliverables": None}
             return
+        # Skip flag wins over deliverables: the pipeline deliberately stopped
+        # and the attempter needs to release the task on the platform.
+        skip = read_skip_flag(task_dir)
+        if skip:
+            with _state_lock:
+                jobs[task_id] = {
+                    "status": "skipped",
+                    "error": None,
+                    "deliverables": None,
+                    "reason": skip["reason"],
+                }
+            print(f"[RUN] Skipped: {task_id}")
+            return
         deliv = read_deliverables(task_dir)
         if not deliv:
             with _state_lock:
@@ -280,6 +407,11 @@ def run_status(task_id):
     # Filesystem wins over the in-memory cache.
     task_dir = find_task_dir(task_id)
     if task_dir:
+        skip = read_skip_flag(task_dir)
+        if skip:
+            with _state_lock:
+                jobs.pop(task_id, None)
+            return jsonify({"status": "skipped", "reason": skip["reason"]})
         deliv = read_deliverables(task_dir)
         if deliv:
             with _state_lock:
@@ -290,6 +422,8 @@ def run_status(task_id):
     if job:
         if job["status"] == "running":
             return jsonify({"status": "running"})
+        if job["status"] == "skipped":
+            return jsonify({"status": "skipped", "reason": job.get("reason", "")})
         if job["status"] == "error":
             return jsonify({"status": "error", "error": job["error"]})
     return jsonify({"status": "not_found"})
@@ -316,22 +450,34 @@ def _platform_axis_md(label, reasoning, axis_title, justification_label):
 
 
 def write_review_workspace(review_dir, data):
-    """Materialize inputs.md + deliverables/*.md from scraped page data."""
+    """Materialize inputs.md + deliverables/*.md from scraped page data.
+
+    Axis ordering matches the 5-axis platform layout. `addressed.md` is only
+    written when the scraper found a value, which happens only on merged PRs.
+    """
     (review_dir / "deliverables").mkdir(parents=True, exist_ok=True)
     (review_dir / "work").mkdir(parents=True, exist_ok=True)
     write_inputs_md(review_dir, data)
 
     deliv = data.get("current") or {}
-    q = deliv.get("quality") or {}
-    s = deliv.get("severity") or {}
-    c = deliv.get("context_scope") or {}
-    a = deliv.get("advanced") or {}
+    q  = deliv.get("quality") or {}
+    ad = deliv.get("addressed") or None
+    s  = deliv.get("severity") or {}
+    c  = deliv.get("context_scope") or {}
+    a  = deliv.get("advanced") or {}
 
     (review_dir / "deliverables" / "quality.md").write_text(
         f"{q.get('label','')}\nAxis 1: Quality Justification *\n{q.get('reasoning','')}\n",
         encoding="utf-8")
+
+    # Addressed is only present on merged PRs.
+    if ad and (ad.get("label") or ad.get("reasoning")):
+        (review_dir / "deliverables" / "addressed.md").write_text(
+            f"{ad.get('label','')}\nAxis 2: Addressed Justification *\n{ad.get('reasoning','')}\n",
+            encoding="utf-8")
+
     (review_dir / "deliverables" / "severity.md").write_text(
-        f"{s.get('label','')}\nAxis 2: Severity Justification *\n{s.get('reasoning','')}\n",
+        f"{s.get('label','')}\nAxis 3: Severity Justification *\n{s.get('reasoning','')}\n",
         encoding="utf-8")
 
     rows = "\n".join(
@@ -339,15 +485,15 @@ def write_review_workspace(review_dir, data):
         for i, e in enumerate(c.get("entries") or [])
     )
     (review_dir / "deliverables" / "context_scope.md").write_text(
-        f"{c.get('label','')}\nAxis 3: Context\n\n#\tdiff_line\tfile_path\twhy\n{rows}\n",
+        f"{c.get('label','')}\nAxis 4: Context\n\n#\tdiff_line\tfile_path\twhy\n{rows}\n",
         encoding="utf-8")
 
     (review_dir / "deliverables" / "advanced.md").write_text(
-        f"{a.get('label','')}\nAxis 4: Advanced Justification\n{a.get('reasoning','')}\n",
+        f"{a.get('label','')}\nAxis 5: Advanced Justification\n{a.get('reasoning','')}\n",
         encoding="utf-8")
 
 
-def _parse_platform_axis_md(text, axis_num):
+def _parse_platform_axis_md(text):
     """Parse a platform-format file (label on line 1, then heading, then reasoning)."""
     if not text:
         return {"label": "", "reasoning": ""}
@@ -361,21 +507,42 @@ def _parse_platform_axis_md(text, axis_num):
     return {"label": label, "reasoning": reasoning}
 
 
+def _read_axis_dir(dir_path):
+    """Read all axis files from a deliverables-style directory. Addressed is
+    optional, present only when the PR was merged."""
+    out = {}
+    if not dir_path.is_dir():
+        return out
+    if (dir_path / "quality.md").is_file():
+        out["quality"] = _parse_platform_axis_md((dir_path / "quality.md").read_text(encoding="utf-8"))
+    if (dir_path / "addressed.md").is_file():
+        out["addressed"] = _parse_platform_axis_md((dir_path / "addressed.md").read_text(encoding="utf-8"))
+    if (dir_path / "severity.md").is_file():
+        out["severity"] = _parse_platform_axis_md((dir_path / "severity.md").read_text(encoding="utf-8"))
+    if (dir_path / "advanced.md").is_file():
+        out["advanced"] = _parse_platform_axis_md((dir_path / "advanced.md").read_text(encoding="utf-8"))
+    if (dir_path / "context_scope.md").is_file():
+        out["context_scope"] = parse_context_scope((dir_path / "context_scope.md").read_text(encoding="utf-8"))
+    return out
+
+
 def read_fixed_deliverables(review_dir):
     """Read fixed_deliverables/*.md (platform format) if present."""
-    fd = review_dir / "fixed_deliverables"
-    if not fd.is_dir():
-        return {}
-    out = {}
-    if (fd / "quality.md").is_file():
-        out["quality"] = _parse_platform_axis_md((fd / "quality.md").read_text(encoding="utf-8"), 1)
-    if (fd / "severity.md").is_file():
-        out["severity"] = _parse_platform_axis_md((fd / "severity.md").read_text(encoding="utf-8"), 2)
-    if (fd / "advanced.md").is_file():
-        out["advanced"] = _parse_platform_axis_md((fd / "advanced.md").read_text(encoding="utf-8"), 4)
-    if (fd / "context_scope.md").is_file():
-        out["context_scope"] = parse_context_scope((fd / "context_scope.md").read_text(encoding="utf-8"))
-    return out
+    return _read_axis_dir(review_dir / "fixed_deliverables")
+
+
+def read_full_deliverables(review_dir):
+    """Return original deliverables overlaid with fixed_deliverables.
+
+    Always includes every axis present on disk so the extension can refill
+    axes that were not part of the review fix. Without this the extension
+    would fall back to whatever was scraped from the form, which may be empty
+    if the user reset or never filled that axis before running Review.
+    """
+    base = _read_axis_dir(review_dir / "deliverables")
+    fixed = _read_axis_dir(review_dir / "fixed_deliverables")
+    base.update(fixed)
+    return base
 
 
 def read_review_outputs(review_dir):
@@ -416,6 +583,7 @@ def read_review_outputs(review_dir):
     return {
         "feedback": feedback_text,
         "fixed": read_fixed_deliverables(review_dir),
+        "deliverables": read_full_deliverables(review_dir),
         "quality_score": quality_score,
     }
 
@@ -545,8 +713,11 @@ def state(task_id):
         prog = run_dir / "progress.md"
         if prog.is_file():
             run_block["progress"] = prog.read_text(encoding="utf-8")
-        deliv = read_deliverables(run_dir)
-        if deliv:
+        skip = read_skip_flag(run_dir)
+        if skip:
+            run_block["status"] = "skipped"
+            run_block["reason"] = skip["reason"]
+        elif read_deliverables(run_dir):
             run_block["status"] = "done"
         elif run_job_snapshot and run_job_snapshot["status"] == "running":
             run_block["status"] = "running"

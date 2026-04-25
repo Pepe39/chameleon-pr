@@ -29,8 +29,21 @@ prevent `*` expansion and cause false negatives. Always use `find`.
 
 ### 1a. Idempotency check (BEFORE doing anything else)
 
-If the task dir was found, IMMEDIATELY check whether the four deliverable files
-already exist on disk and are non-empty:
+If the task dir was found, IMMEDIATELY check two signals on disk, in this order.
+
+**Signal 1: skip flag.** If `skip_flag.md` exists at the task root, a previous
+run deliberately flagged this task as skip-release-flag (most often by step-02
+section 2d, comment-about-comment detection). Do NOT bootstrap `progress.md`.
+Do NOT run any step. Read the content of `skip_flag.md` and print it, then
+print the single-line marker so the API and extension can surface it:
+
+`SKIP_AND_FLAG: {id} references another comment (not code). Skip, release, flag in the platform.`
+
+Then run section 7 (Cleanup) in case `work/repo` happens to exist from an
+earlier partial run, and STOP immediately.
+
+**Signal 2: deliverables already written.** Check whether the four deliverable
+files already exist on disk and are non-empty:
 
 ```bash
 DIR=<path returned by find>
@@ -45,12 +58,12 @@ done
   any file. Do NOT bootstrap `progress.md`. Do NOT run any step. Print:
   `Task {id} already labeled (deliverables present on disk). Skipping.` and STOP
   immediately. The API reads the deliverables from disk; nothing else is needed.
-- If any file is missing -> continue to 2b or 2c as normal.
+- If neither signal is present -> continue to 2b or 2c as normal.
 
-**Why:** the API can re-invoke `/run {id} auto` for tasks that were produced in
-earlier sessions. Rerunning the pipeline would waste work and may produce
-different labels for an already-validated task. Idempotency is mandatory in
-auto mode AND in interactive mode.
+**Why both signals?** the API can re-invoke `/run {id} auto` for tasks that
+were processed in earlier sessions. A labeled task must stay labeled. A
+flagged task must stay flagged. Idempotency is mandatory in auto mode AND in
+interactive mode.
 
 ### 2a. If task does NOT exist -> Create task
 
@@ -96,11 +109,14 @@ Paste your task variables below. Fill in each field from the annotation platform
 | 02 | Analyze PR | pending | | |
 | 03 | Analyze Comment | pending | | |
 | 04 | Label Quality | pending | | |
+| 045 | Label Addressed | pending | | |
 | 05 | Label Severity | pending | | |
 | 06 | Label Context Scope | pending | | |
 | 07 | Label Advanced | pending | | |
 | 08 | Generate Output | pending | | |
 ```
+
+Note. Step 045 may resolve to `skipped` when the PR is not merged. The downstream steps still run normally.
 
 5. Generate `tasks/{date}/{id}/task_info.md`:
 
@@ -140,9 +156,11 @@ Read `tasks/{date}/{id}/progress.md`. Extract Current Step and Status.
 
 ```
 == Task {id} ==
-Steps completed: {N}/8
+Steps completed: {N}/9
 Next step: {N} - {name} ({status})
 ```
+
+When computing `N`, count steps with status `done` or `skipped`. Step 045 resolves to `skipped` on non-merged PRs, and that still counts as a completed step in the progress total.
 
 If status is "in-progress": "NOTE: This step was interrupted. It will be resumed."
 
@@ -164,6 +182,7 @@ Dispatch logic:
 | 02 | step-02-analyze-pr |
 | 03 | step-03-analyze-comment |
 | 04 | step-04-label-quality |
+| 045 | step-045-label-addressed |
 | 05 | step-05-label-severity |
 | 06 | step-06-label-context-scope |
 | 07 | step-07-label-advanced |
@@ -175,10 +194,20 @@ Read `.claude/skills/{step-command}.md` and follow ALL instructions from that fi
 
 ### 6. After the step
 
-1. Update progress.md (each step already does this when finishing)
-2. Show: "Step {N} completed. Next: {N+1} - {name}"
-3. **Interactive mode:** Ask "Continue with the next step? (yes/no)". If yes -> back to step 4. If no -> section 7 (Cleanup), then show "To resume: `/run {id}`".
-4. **Auto mode:** Do NOT ask. Loop straight back to step 4 with the next pending step until all 8 steps are `done`, then proceed to section 7 (Cleanup) and stop.
+1. **Skip flag check.** After any step completes, check whether `skip_flag.md`
+   exists at the task root. If yes, the step wrote a skip-release-flag signal
+   (typically step-02 section 2d). Print the content of `skip_flag.md` and the
+   single-line marker:
+
+   `SKIP_AND_FLAG: {id} references another comment (not code). Skip, release, flag in the platform.`
+
+   Then proceed directly to section 7 (Cleanup) and STOP. Do NOT continue to
+   the next step. Do NOT ask the user. Do NOT loop. This applies in both
+   interactive and auto mode.
+2. Update progress.md (each step already does this when finishing).
+3. Show: "Step {N} completed. Next: {N+1} - {name}".
+4. **Interactive mode:** Ask "Continue with the next step? (yes/no)". If yes -> back to step 4. If no -> section 7 (Cleanup), then show "To resume: `/run {id}`".
+5. **Auto mode:** Do NOT ask. Loop straight back to step 4 with the next pending step until all 9 steps are `done` or `skipped` (step 045 may legitimately be `skipped` on non-merged PRs), then proceed to section 7 (Cleanup) and stop.
 
 ### 7. Cleanup
 

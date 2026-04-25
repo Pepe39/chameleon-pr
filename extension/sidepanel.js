@@ -1,5 +1,10 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const $ = id => document.getElementById(id);
+  try {
+    const v = chrome.runtime.getManifest().version;
+    const tag = document.getElementById('extVersion');
+    if (tag) tag.textContent = `v${v}`;
+  } catch (_) {}
   const pageStatusText = $('pageStatusText');
   const pageStatusDot = $('pageStatusDot');
   const taskInfo = $('taskInfo');
@@ -7,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const scrapePreview = $('scrapePreview');
   const inputsList = $('inputsList');
   const missingWarn = $('missingWarn');
+  const threadBadge = $('threadBadge');
   const runBtn = $('runBtn');
   const reviewBtn = $('reviewBtn');
   const fillBtn = $('fillBtn');
@@ -23,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statusCard = $('statusCard');
   const statusBody = $('statusBody');
   let reviewFixes = null;
+  let reviewDeliverables = null;
   let reviewMeta = { quality_score: null, feedback_text: '' };
   const progress = $('progress');
   const progressText = $('progressText');
@@ -35,7 +42,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const apiStatusDot = $('apiStatusDot');
   const modelSelect = $('modelSelect');
 
-  const PLATFORM_HOST = 'annotation-platform-henna.vercel.app';
+  const PLATFORM_HOSTS = [
+    'annotation-platform-henna.vercel.app',
+    'annotation-hub.vercel.app',
+  ];
+  const isPlatformUrl = (u) => !!u && PLATFORM_HOSTS.some(h => u.includes(h));
   let scrapeData = null;
   let deliverables = null;
 
@@ -88,6 +99,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   function hideAll() {
     [taskInfo, scrapePreview, runBtn, reviewBtn, fillBtn, applyFixesBtn, reevaluateBtn, recheckBtn, fixRecheckBtn, clearBtn, statusBtn,
      progress, statusEl, resultsCard, reviewCard, statusCard, wrongPage].forEach(e => e.classList.add('hidden'));
+    if (threadBadge) {
+      threadBadge.className = 'thread-badge hidden';
+      threadBadge.textContent = '';
+    }
   }
 
   function renderInputs(data) {
@@ -112,16 +127,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
+  async function checkThread(data) {
+    if (!threadBadge) return;
+    const nwo = (data?.nwo || '').trim();
+    const commentId = (data?.comment_id || '').trim();
+    threadBadge.className = 'thread-badge hidden';
+    threadBadge.textContent = '';
+    if (!nwo || !commentId) return;
+    threadBadge.className = 'thread-badge checking';
+    threadBadge.textContent = 'Checking thread...';
+    try {
+      const api = await getApi();
+      const url = `${api}/thread-check?nwo=${encodeURIComponent(nwo)}&comment_id=${encodeURIComponent(commentId)}`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) {
+        threadBadge.className = 'thread-badge error';
+        threadBadge.textContent = `Thread check failed. ${j.error || r.statusText}`;
+        return;
+      }
+      if (j.is_nested) {
+        const n = j.ancestor_count || 0;
+        threadBadge.className = 'thread-badge';
+        threadBadge.textContent = `Nested reply. ${n} ancestor${n === 1 ? '' : 's'}. to_report.md will be generated.`;
+      } else {
+        threadBadge.className = 'thread-badge hidden';
+        threadBadge.textContent = '';
+      }
+    } catch (e) {
+      threadBadge.className = 'thread-badge error';
+      threadBadge.textContent = `Thread check failed. ${e.message || e}`;
+    }
+  }
+
   function renderDeliverables(d) {
     deliverables = d;
     resultsList.innerHTML = '';
     const axes = [
       ['Quality', d.quality],
+      ['Addressed', d.addressed],
       ['Severity', d.severity],
       ['Context Scope', d.context_scope],
       ['Advanced', d.advanced],
     ];
     for (const [name, axis] of axes) {
+      // Addressed is only present for merged PRs. Skip silently when the
+      // pipeline omitted it.
       if (!axis) continue;
       const div = document.createElement('div');
       div.className = 'deliv';
@@ -146,11 +197,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     fixRecheckBtn.classList.remove('hidden');
   }
 
+  function renderSkipFlag(reason) {
+    progress.classList.add('hidden');
+    runBtn.classList.add('hidden');
+    reviewBtn.classList.add('hidden');
+    fillBtn.classList.add('hidden');
+    recheckBtn.classList.add('hidden');
+    fixRecheckBtn.classList.add('hidden');
+    resultsCard.classList.add('hidden');
+    clearBtn.classList.remove('hidden');
+    pageStatusText.textContent = 'Skip and release';
+    pageStatusDot.className = 'status-dot disconnected';
+    const detail = (reason || '').trim();
+    const msg = detail
+      ? `Skip and release this task on the platform, then flag it. ${detail}`
+      : 'Skip and release this task on the platform, then flag it. The comment references another comment, not code.';
+    showStatus(msg, 'warn');
+  }
+
   // ============ Detect & Scrape ============
   async function detect() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab || !tab.url?.includes(PLATFORM_HOST) || !tab.url.includes('/tasks/')) {
+      if (!tab || !isPlatformUrl(tab.url) || !tab.url.includes('/tasks/')) {
         hideAll();
         wrongPage.classList.remove('hidden');
         pageStatusText.textContent = 'Not on a task page';
@@ -176,6 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderInputs(data);
       scrapePreview.classList.remove('hidden');
       statusBtn.classList.remove('hidden');
+      checkThread(data);
 
       // Detect stage from page DOM (stepper-based)
       const layer = await detectPlatformLayer(tab.id);
@@ -219,6 +289,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           runBtn.classList.add('hidden');
           pageStatusText.textContent = 'Already labeled';
           pageStatusDot.className = 'status-dot connected';
+        } else if (s.status === 'skipped') {
+          renderSkipFlag(s.reason);
         } else if (s.status === 'running') {
           progress.classList.remove('hidden');
           progressText.textContent = 'Running...';
@@ -273,6 +345,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderDeliverables(s.deliverables);
         return;
       }
+      if (s.status === 'skipped') {
+        renderSkipFlag(s.reason);
+        return;
+      }
       progressText.textContent = 'Claude is labeling...';
       pollStatus(api, scrapeData.task_id);
     } catch (err) {
@@ -295,6 +371,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           renderDeliverables(s.deliverables);
           pageStatusText.textContent = 'Labeled';
           pageStatusDot.className = 'status-dot connected';
+          return;
+        }
+        if (s.status === 'skipped') {
+          renderSkipFlag(s.reason);
           return;
         }
         if (s.status === 'error') throw new Error(s.error || 'Pipeline failed');
@@ -385,8 +465,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   function escapeMd(s) { return escapeHtml(s || ''); }
 
   function renderReview(payload) {
-    const { feedback = '', fixed = {}, quality_score = null } = payload;
+    const { feedback = '', fixed = {}, deliverables = {}, quality_score = null } = payload;
     reviewFixes = fixed && Object.keys(fixed).length ? fixed : null;
+    reviewDeliverables = deliverables && Object.keys(deliverables).length ? deliverables : null;
     reviewMeta = { quality_score, feedback_text: feedback };
 
     // Changes summary: list axes that have a fix vs original
@@ -394,6 +475,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const lines = [];
     const axes = [
       ['Quality', 'quality'],
+      ['Addressed', 'addressed'],
       ['Severity', 'severity'],
       ['Context Scope', 'context_scope'],
       ['Advanced', 'advanced'],
@@ -514,17 +596,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cr = await chrome.runtime.sendMessage({ action: 'clearFields', tabId: tab.id });
       if (cr?.error) throw new Error(cr.error);
 
-      // 2. Build merged payload: original scraped values overlaid with fixes
+      // 2. Build merged payload. Priority for each axis:
+      //      fixed > full deliverables > scraped original
+      //    The full deliverables set comes from the API (originals overlaid
+      //    with fixes) and guarantees axes not part of the review fix are
+      //    still filled with the /run output rather than whatever empty
+      //    state the form had when Review was clicked.
       const orig = scrapeData?.current || {};
+      const deliv = reviewDeliverables || {};
       const fixed = reviewFixes || {};
+      const pick = (key) => ({
+        ...(orig[key] || {}),
+        ...(deliv[key] || {}),
+        ...(fixed[key] || {}),
+      });
       const merged = {
-        quality:       { ...(orig.quality || {}),       ...(fixed.quality || {}) },
-        severity:      { ...(orig.severity || {}),      ...(fixed.severity || {}) },
-        context_scope: { ...(orig.context_scope || {}), ...(fixed.context_scope || {}) },
-        advanced:      { ...(orig.advanced || {}),      ...(fixed.advanced || {}) },
+        quality:       pick('quality'),
+        severity:      pick('severity'),
+        context_scope: pick('context_scope'),
+        advanced:      pick('advanced'),
         quality_score: reviewMeta.quality_score,
         feedback_text: reviewMeta.feedback_text,
       };
+      // Only include Addressed when the pipeline produced it. Open PRs get no
+      // key, so fill() skips the section instead of erroring out.
+      const addressedMerged = pick('addressed');
+      if (addressedMerged && (addressedMerged.label || addressedMerged.reasoning)) {
+        merged.addressed = addressedMerged;
+      }
 
       // 3. Refill the page with the merged result
       const r = await chrome.runtime.sendMessage({

@@ -19,6 +19,8 @@ Goes to the discussion URL, verifies the comment matches the body field, reviews
 Read `task_info.md` to get: body, discussion_url, repo_url, file_path, diff_line, PR context.
 Read `work/pr_diff.txt` for the full diff.
 
+If `work/thread.md` exists (written by step-02 when the body is a nested reply), read it fully. The file lists the ancestor chain from the root of the review thread down to the body. Use it to understand what the body is replying to. Do NOT evaluate or label the ancestor comments. Only the body is the target of this task. The thread is context for intent, not a target.
+
 Update `progress.md`: step 03 status = "in-progress", Started = {timestamp ISO 8601}.
 
 ### 2. Verify the comment (GATE)
@@ -137,10 +139,13 @@ Document what files you consulted and why.
 
 ### 5. Deep analysis of the comment
 
-Re-read the `body` field with full context. Answer these questions and record them:
+Re-read the `body` field with full context. If `work/thread.md` exists, read the ancestor chain again and identify the specific question, claim, or request from the thread that the body is responding to. The body alone can read as ambiguous or off-topic when it is actually a direct reply to something stated earlier in the thread. Record which ancestor the body is replying to and summarize what was being asked or said.
+
+Answer these questions and record them:
 
 1. **What specific issue is the comment pointing out?**
    - Summarize in 1-2 sentences
+   - If this is a nested reply, frame the summary as the reply within the thread, not in isolation
 
 2. **Is the comment factually correct?**
    - Verify every claim against the actual code
@@ -219,7 +224,8 @@ Add to the Analysis section:
 
 ### Comment Analysis
 - **Comment Verified:** Yes/No (matches body field)
-- **Issue Identified:** {1-2 sentence summary of what the comment points out}
+- **Thread Context:** {only if work/thread.md exists: which ancestor the body is replying to, and what was being asked or said. Omit this line for top-level comments.}
+- **Issue Identified:** {1-2 sentence summary of what the comment points out, framed within the thread if nested}
 - **Factually Correct:** Yes/No/Partially — {brief explanation}
 - **Context Consulted (verification):**
   - {file_path}:{lines} — {why you read this to verify the comment}

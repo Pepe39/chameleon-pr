@@ -1,4 +1,4 @@
-# Code Review Labeling — Step-by-Step Workflow Guide
+# Code Review Labeling. Step-by-Step Workflow Guide
 
 This guide walks you through the complete workflow for labeling a single code review comment, from opening the task to submitting your final labels.
 
@@ -95,7 +95,7 @@ Before starting, make sure you have:
 
 ---
 
-### Step 6: Label Axis 1 — Quality
+### Step 6: Label Axis 1. Quality
 
 Decide: Is this comment **helpful**, **unhelpful**, or **wrong**?
 
@@ -120,24 +120,43 @@ Use this decision tree:
 
 ---
 
-### Step 7: Label Axis 2 — Severity
+### Step 7: Label Axis 2. Addressed
 
-Decide: How severe is the **issue itself** (not the comment)?
+> **Only runs when the PR is merged.** Skip this step entirely if the PR is still open, and omit the `addressed` field from the output. Do not leave it empty. Do not default to a value. Just do not include it.
+
+Decide. Was the comment addressed in the merged PR?
+
+| Label | Question to Ask | Examples |
+|---|---|---|
+| **addressed** | Did the merged code change in a way that resolves the underlying concern? | Reviewer's exact suggestion was applied, or a different fix that solves the same problem, or an author reply promising to fix later or in another PR |
+| **ignored** | Is the merged code unchanged on this concern, with no discussion dismissing the comment? | The comment was posted and nobody touched the code or replied to it |
+| **false_positive** | Did the PR author or another reviewer explicitly rebut the comment? | Reply explains the comment is based on a misunderstanding, points at code that already handles the case, or calls the concern non-applicable |
+
+**Key reminders:**
+- Silence is not a false positive. Without an explicit rebuttal, the default is `ignored`.
+- The fix does not have to match the reviewer's suggestion. Any change that resolves the underlying concern counts as `addressed`.
+- Compare against the **merged** state, not HEAD of the branch at the time of the comment. Follow the thread all the way to what landed.
+
+---
+
+### Step 8: Label Axis 3. Severity
+
+Decide. How severe is the **issue itself**, not the comment?
 
 | Label | Question to Ask | Examples |
 |---|---|---|
 | **nit** | Can this safely be ignored or deferred? | Style, naming, cosmetic, docs |
-| **moderate** | Should this be improved but won't cause serious harm? | Missing edge cases on uncommon paths, suboptimal logic |
+| **moderate** | Should this be improved but will not cause serious harm? | Missing edge cases on uncommon paths, suboptimal logic |
 | **critical** | Would a senior engineer insist this be fixed before merge? | Security vulnerabilities, data corruption, build-breaking errors |
 
 **Key reminders:**
-- Rate the **issue**, not the **tone** of the comment
-- If multiple issues mentioned, rate by the **most severe**
-- Same code pattern can be different severities depending on context
+- Rate the **issue**, not the **tone** of the comment.
+- If multiple issues mentioned, rate by the **most severe**.
+- Same code pattern can be different severities depending on context.
 
 ---
 
-### Step 8: Label Axis 3 — Context Scope
+### Step 9: Label Axis 4. Context Scope
 
 Decide: What level of context did the reviewer **need** to make this comment?
 
@@ -171,37 +190,48 @@ Then fill in the `context` array:
 
 ---
 
-### Step 9: Label Axis 4 — Advanced
+### Step 10: Label Axis 5. Advanced
 
-Decide: Does this comment go **beyond what is obvious** from the changed lines?
+Decide. Which kind of beyond-diff knowledge did the reviewer rely on?
 
-**Label `true` if ANY of these apply:**
-- References repo-specific conventions or architectural decisions
-- Requires knowledge from files NOT touched by the PR
-- Requires awareness of recent/non-obvious language or library behavior
-- Suggests a fundamentally better implementation approach
+**Advanced is a 5-value string enum, not `true/false`.** Pick exactly one:
 
-**Label `false` if:**
-- The issue is visible directly in the diff (typos, syntax errors, obvious logic bugs)
-- A reviewer could make this comment by only reading the changed lines
-- Even if the comment is insightful, if it's derivable from the diff alone → `false`
+| Value | When to pick it |
+|---|---|
+| **False** | The comment could be made by reading only the changed lines. Typos, syntax errors, obvious logic bugs, style visible in the diff. |
+| **Repo-specific conventions** | Relies on a convention, pattern, or architectural decision specific to this repository. |
+| **Context outside changed files** | Requires reading files the PR did not touch. Base classes, shared utilities, configs, API contracts. |
+| **Recent language / library updates** | Requires knowing a recent or non-obvious language feature, library behavior, deprecation, or framework semantic. |
+| **Better implementation approach** | Suggests a meaningfully better design, algorithm, or API usage. Not a style preference, a fundamentally different approach. |
+
+**Advanced is derived from Context Scope.** The mapping:
+
+| Context Scope | Advanced |
+|---|---|
+| `diff` | `False` |
+| `file` | `False` |
+| `repo` | one of the four non-False values |
+| `external` | one of the four non-False values |
+
+**Hard rule.** `repo` or `external` scope with `advanced = "False"` is invalid. If you reach that combination, one of the two labels is wrong. Go back and re-check scope.
 
 ---
 
-### Step 10: Record and Submit
+### Step 11: Record and Submit
 
-Compile your labels into the output format:
+Compile your labels into the output format. The `addressed` field is only present when the PR is merged.
 
 ```json
 {
   "quality": "helpful",
+  "addressed": "addressed",
   "severity": "critical",
   "context_scope": "file",
   "context": [
     {
       "diff_line": "168",
       "file_path": "src/monitors/incident.py",
-      "why": "Bug line — returns untransformed config"
+      "why": "Bug line. Returns untransformed config"
     },
     {
       "diff_line": "161-163",
@@ -209,18 +239,20 @@ Compile your labels into the output format:
       "why": "Config is created and transformed here"
     }
   ],
-  "advanced": false
+  "advanced": "False"
 }
 ```
 
 **Final checklist before submitting:**
 - [ ] Verified the comment matches the `body` field
 - [ ] Quality is based on factual correctness and usefulness
+- [ ] Addressed is filled **only** when the PR is merged. Omitted otherwise
 - [ ] Severity rates the issue, not the comment's tone
 - [ ] Context scope reflects the broadest level needed
 - [ ] Context array lists all evidence the reviewer used
-- [ ] Advanced is based on knowledge requirements, not difficulty
-- [ ] All four axes are evaluated independently
+- [ ] Advanced is the string enum value, not `true/false`
+- [ ] `repo` or `external` scope is never paired with `advanced = "False"`
+- [ ] All five axes are evaluated independently
 
 ---
 
@@ -228,14 +260,16 @@ Compile your labels into the output format:
 
 | Axis | Values | Key Rule |
 |---|---|---|
-| **Quality** | helpful / unhelpful / wrong | Wrong = factually false, not "I disagree" |
+| **Quality** | helpful / unhelpful / wrong | Wrong means factually false, not "I disagree" |
+| **Addressed** | addressed / ignored / false_positive. Merged PRs only | Silence is not a false positive. Default is `ignored` |
 | **Severity** | nit / moderate / critical | Rate the issue, not the comment |
 | **Context Scope** | diff / file / repo / external | Pick the broadest level needed |
-| **Advanced** | true / false | Could the comment be made from the diff alone? |
+| **Advanced** | False / Repo-specific conventions / Context outside changed files / Recent language / library updates / Better implementation approach | Derived from scope. `diff` or `file` maps to `False`. `repo` or `external` maps to one of the four non-False values |
 
 ### Independence Rule
 
-All four axes are **independent**. Any combination is valid:
-- Helpful + Nit + Diff + false (good comment about a minor style issue)
-- Wrong + Critical + File + false (incorrect claim about a severe issue)
-- Helpful + Critical + Repo + true (catches a real bug using deep repo knowledge)
+All five axes are **independent**. Any combination is valid:
+- Helpful plus Nit plus Diff plus `False`. Good comment about a minor style issue
+- Wrong plus Critical plus File plus `False`. Incorrect claim about a severe issue
+- Helpful plus Critical plus Repo plus `Context outside changed files`. Catches a real bug using knowledge from an untouched file
+- Helpful plus Moderate plus Repo plus `Repo-specific conventions` plus `addressed`. On a merged PR where the team followed the convention in a later commit

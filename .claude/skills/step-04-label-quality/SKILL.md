@@ -20,6 +20,8 @@ Labels Axis 1 — Quality. Determines whether the review comment is helpful, unh
 
 Read `task_info.md` — specifically the "Review Comment" (body) and "Comment Analysis" sections.
 
+If `work/thread.md` exists, read it as well. The body of this task is a nested reply. Take the thread context into account when judging the helpfulness of the body. A reply that looks vague in isolation may be perfectly actionable inside its thread (for example, a one-word answer to a yes/no question from the reviewer above). Do NOT label the ancestor comments. The label targets the body only.
+
 Update `progress.md`: step 04 status = "in-progress", Started = {timestamp ISO 8601}.
 
 ### 2. Apply the decision tree
@@ -124,4 +126,4 @@ Add to the Labels section:
 
 ### 6. Update progress
 
-Update `progress.md`: step 04 status = "done", Completed = {timestamp ISO 8601}, Current Step = 05 - Label Severity.
+Update `progress.md`: step 04 status = "done", Completed = {timestamp ISO 8601}, Current Step = 045 - Label Addressed.

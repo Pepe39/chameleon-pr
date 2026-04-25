@@ -285,20 +285,32 @@ Axis 1: Quality Justification *
 {Reasoning text}
 ```
 
+**addressed.md** format (only present when the PR was merged):
+```
+Axis 2: Addressed *
+...prompt text...
+
+{Label}              <-- one of: addressed, ignored, false_positive
+Axis 2: Addressed Justification *
+{Reasoning text}
+```
+
+If `addressed.md` is absent in the deliverables directory, verify that `task_info.md` records `PR Merged Status` as `open` or `closed_not_merged`. If the PR is merged but `addressed.md` is missing, record a blocking failure and stop. If the PR is not merged and `addressed.md` is absent, that is the expected state.
+
 **severity.md** format:
 ```
-Axis 2: Severity *
+Axis 3: Severity *
 ...prompt text...
 
 {Label}              <-- one of: Nit, Moderate, Critical
-Axis 2: Severity Justification *
+Axis 3: Severity Justification *
 {Reasoning text}
 ```
 
 **context_scope.md** format:
 ```
 {Label}              <-- one of: Diff, File, Repo, External
-Axis 3: Context
+Axis 4: Context
 ...prompt text...
 
 #	diff_line	file_path	why
@@ -315,16 +327,17 @@ Axis 3: Context
 
 **advanced.md** format:
 ```
-Axis 4: Advanced *
+Axis 5: Advanced *
 ...prompt text...
 
-{Label}              <-- one of: Repo-specific conventions, Context outside changed files, Recent language/library updates, Better implementation approach, False
-Axis 4: Advanced Justification
+{Label}              <-- one of: Repo-specific conventions, Context outside changed files, Recent language / library updates, Better implementation approach, False
+Axis 5: Advanced Justification
 {Reasoning text}
 ```
 
 Extract and record:
 - `quality_label`, `quality_reasoning`
+- `addressed_label`, `addressed_reasoning` (only when `addressed.md` is present. `None` otherwise)
 - `severity_label`, `severity_reasoning`
 - `context_scope_label`, `context_entries[]` (each with diff_line, file_path, why)
 - `advanced_label`, `advanced_reasoning`
@@ -389,7 +402,7 @@ Before re-evaluating the axis labels, verify that the task data is internally co
 
 This is the core of the review. For each axis, independently re-derive what the label should be using the original evidence (comment body, diff, comment analysis). Then compare your independent assessment against the task's label.
 
-**IMPORTANT:** Use the axis definitions from `docs/axis-1-quality.md`, `docs/axis-2-severity.md`, `docs/axis-3-context-scope.md`, and `docs/axis-4-advanced.md` as your evaluation criteria. Also consult `DOCUMENTATION.md` sections 9 (FAQ), 10 (Common Mistakes), and 11 (Tips) for edge cases and pitfalls. Read them if needed.
+**IMPORTANT:** Use the axis definitions from `docs/axis-1-quality.md`, `docs/axis-2-addressed.md` (merged PRs only), `docs/axis-3-severity.md`, `docs/axis-4-context-scope.md`, and `docs/axis-5-advanced.md` as your evaluation criteria. Also consult `DOCUMENTATION.md` sections 9 (Justification Quality Standards), 11 (FAQ), 12 (Common Mistakes), and 13 (Tips) for edge cases and pitfalls. Read them if needed.
 
 **IMPORTANT:** Factor in the data consistency findings from step 3. If the problem was not found at comment_commit, this must influence your quality assessment.
 
@@ -540,7 +553,7 @@ If the context_scope from step 4c is `repo` or `external`, select the category t
 |---|---|
 | **Repo-specific conventions** | Comment references patterns, conventions, or architectural decisions specific to this repo |
 | **Context outside changed files** | Comment requires knowledge from files not touched by the PR |
-| **Recent language/library updates** | Comment requires awareness of recent or non-obvious language/framework behavior |
+| **Recent language / library updates** | Comment requires awareness of recent or non-obvious language/framework behavior |
 | **Better implementation approach** | Comment suggests a fundamentally better design, algorithm, or API usage (not just style) |
 
 Record your independent label derived from the mapping. Compare against the task's label.
@@ -576,7 +589,7 @@ Run these as secondary validation:
 | F1 | quality label is one of: `helpful`, `unhelpful`, `wrong` | Exact match (case-insensitive) |
 | F2 | severity label is one of: `nit`, `moderate`, `critical` | Exact match (case-insensitive) |
 | F3 | context_scope label is one of: `diff`, `file`, `repo`, `external` | Exact match (case-insensitive) |
-| F4 | advanced label is one of: `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`, `False` | **Case-insensitive** match. The platform's combo box uses lowercase (`false`, `context outside changed files`, etc.) and that is the canonical, valid form. NEVER flag a label as wrong just because of casing. Casing is not a defect. |
+| F4 | advanced label is one of: `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`, `False` | **Case-insensitive** match. The platform's combo box uses lowercase (`false`, `context outside changed files`, etc.) and that is the canonical, valid form. NEVER flag a label as wrong just because of casing. Casing is not a defect. |
 
 #### 5b. Context entries
 
@@ -768,7 +781,29 @@ If the recheck emits `RECHECK_FAILED`:
 - For wording-only failures, step-09-recheck will have already rewritten the offending files in place under `fixed_deliverables/`. Nothing else to do.
 - For label, path, or cross-axis failures that step-09-recheck could not auto-fix, apply corrections to the corresponding file in `fixed_deliverables/` and rerun `step-09-recheck {id} review auto` once. If it still fails, continue to Section 12 but mention the remaining issues in the feedback paragraph and point the user to `recheck_report.md`.
 
-If the recheck emits `RECHECK_PASSED`, continue straight to Section 12.
+If the recheck emits `RECHECK_PASSED`, continue straight to Section 11B.
+
+---
+
+### 11B. Regenerate to_report.md (nested threads only)
+
+Check if `work/thread.md` exists in the task directory.
+
+- If `work/thread.md` does NOT exist, skip this section. `to_report.md` must not exist for top-level tasks. If a stray `to_report.md` is present, delete it.
+- If `work/thread.md` EXISTS, regenerate `to_report.md` at the root of the task directory using the effective deliverables. The effective label and reasoning for each axis is:
+  - the content of `fixed_deliverables/{axis}.md` if that file exists
+  - otherwise the content of `deliverables/{axis}.md`
+
+Use the same template, field rules, and wording audit as `step-08-generate-output` section 7. In particular:
+
+- Build the Axis and Justification cell from the effective deliverables. When the PR is merged (addressed.md present), order is Quality, Addressed, Severity, Context, Advanced. When not merged, order is Quality, Severity, Context, Advanced. Concatenate with periods between sentences.
+- The Summary cell describes what the body of the task is saying inside its thread.
+- The Workaround cell describes internal labeling adjustments that were needed (including any made during the review), empty if none.
+- The Status cell is `done`.
+- The Other task cell is empty.
+- Every cell is a single line. All wording rules apply. Scan the row for `—`, `–`, `;`, `:` outside file paths, and `(` `)` before saving, and rewrite any matches.
+
+Regenerate the file from scratch each time. Do not try to patch the existing row. If `/review` runs a second time and produces new fixes, the new run of this section overwrites `to_report.md` with the updated values.
 
 ---
 

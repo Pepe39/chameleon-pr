@@ -2,6 +2,7 @@
 body { margin: 0; background: #0f1115; color: #e5e7eb; font-size: 13px; }
 .container { padding: 12px; }
 h1 { font-size: 15px; margin: 0 0 10px; }
+.version-tag { font-size: 10px; color: #9ca3af; font-weight: normal; margin-left: 6px; font-family: ui-monospace, monospace; }
 .tabs { display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid #2a2f3a; }
 .tab { background: none; border: none; color: #9ca3af; padding: 6px 10px; cursor: pointer; font-size: 12px; }
 .tab.active { color: #fff; border-bottom: 2px solid #3b82f6; }
@@ -29,7 +30,14 @@ input[type="text"] { flex: 1; background: #0f1115; color: #fff; border: 1px soli
 .status.error { background: #7f1d1d; color: #fecaca; }
 .status.success { background: #064e3b; color: #a7f3d0; }
 .status.info { background: #1e3a8a; color: #bfdbfe; }
+.status.warn { background: #78350f; color: #fed7aa; }
 .warn { background: #78350f; color: #fed7aa; padding: 6px; border-radius: 4px; font-size: 11px; }
+.thread-badge { background: #1e3a8a; color: #bfdbfe; padding: 5px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.thread-badge::before { content: "↳"; font-weight: bold; }
+.thread-badge.checking { background: #374151; color: #9ca3af; font-style: italic; }
+.thread-badge.checking::before { content: ""; }
+.thread-badge.error { background: #7f1d1d; color: #fecaca; }
+.thread-badge.error::before { content: "!"; }
 .hidden { display: none !important; }
 details summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 .input-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #2a2f3a; font-size: 11px; }

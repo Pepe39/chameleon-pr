@@ -35,7 +35,7 @@ This skill is always non-interactive. Do NOT ask the user any questions.
 
 ## Decide what changed
 
-For each of the four axes, compare the original deliverable against the fixed version if present.
+For each axis present in the deliverables (Quality, Addressed when merged, Severity, Context Scope, Advanced), compare the original deliverable against the fixed version if present.
 
 - If no fixed file exists for the axis, treat it as unchanged.
 - If a fixed file exists, extract its label and reasoning and compare against the original.
@@ -90,7 +90,7 @@ Pick one integer 1 to 5 using the following rule.
 - 4, Very Good. Only minor wording or format corrections. No label changes, no reasoning rewrites.
 - 3, Good. Exactly one label change OR exactly one reasoning rewrite.
 - 2, Needs Work. Multiple label changes, or one label change plus one or more reasoning rewrites, or weak reasoning that had to be rebuilt.
-- 1, Poor. Three or four axes were wrong and needed fixes.
+- 1, Poor. Three or more axes were wrong and needed fixes.
 
 ## Update review_progress.md
 

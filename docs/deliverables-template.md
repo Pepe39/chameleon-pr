@@ -6,11 +6,12 @@ Reference for the expected structure of each deliverable file generated in `task
 
 ## labels.json
 
-The structured output for submission. Contains all four axis labels and the context evidence array.
+The structured output for submission. Contains all five axis labels and the context evidence array. The `addressed` field is only included when the PR is merged.
 
 ```json
 {
   "quality": "helpful | unhelpful | wrong",
+  "addressed": "addressed | ignored | false_positive",
   "severity": "nit | moderate | critical",
   "context_scope": "diff | file | repo | external",
   "context": [
@@ -20,22 +21,24 @@ The structured output for submission. Contains all four axis labels and the cont
       "why": "short phrase explaining why this context matters (string)"
     }
   ],
-  "advanced": true | false
+  "advanced": "False | Repo-specific conventions | Context outside changed files | Recent language / library updates | Better implementation approach"
 }
 ```
 
 **Rules:**
 - 2-space indentation
-- `advanced` is a boolean, not a string
-- `diff_line` is a string (e.g., `"42"`, `"83-120"`) or `null`; never a number
+- `advanced` is a string enum, not a boolean. One of the five values `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`
+- `addressed` is only included when the PR is merged. Omit the field entirely when the PR is still open
+- `diff_line` is a string like `"42"` or `"83-120"`, or `null`. Never a number
 - `context` must have at least 1 entry when context_scope is `diff`, `file`, or `repo`
 - `context` may be `[]` when context_scope is `external`
+- Hard rule. If `context_scope` is `repo` or `external`, then `advanced` must not be `False`. That combination is invalid by definition because crossing the diff boundary is itself beyond-diff knowledge
 
 ---
 
 ## quality.md
 
-Justification for Axis 1 (Quality). The Reasoning section is pasted directly into the annotation platform.
+Justification for the Quality axis. The Reasoning section is pasted directly into the annotation platform.
 
 ```markdown
 # Quality: {id}
@@ -56,9 +59,32 @@ Justification for Axis 1 (Quality). The Reasoning section is pasted directly int
 
 ---
 
+## addressed.md
+
+Justification for the Addressed axis. **Only generated when the PR is merged.** Skip this file when the PR is still open. The Reasoning section is pasted directly into the annotation platform.
+
+```markdown
+# Addressed: {id}
+
+- **Comment:** {first 80 chars of body}...
+- **File:** {file_path}:{diff_line}
+- **PR:** {pull_request_url}
+
+## Label
+**{addressed | ignored | false_positive}**
+
+## Reasoning
+{Self-contained justification. 2-3 sentences explaining:
+- Whether and how the comment was addressed in the merged code
+- The specific commit, reply, or code change that shows the outcome
+- For `false_positive`, cite the reviewer or author reply that dismissed the comment}
+```
+
+---
+
 ## severity.md
 
-Justification for Axis 2 (Severity). The Reasoning section is pasted directly into the annotation platform.
+Justification for the Severity axis. The Reasoning section is pasted directly into the annotation platform.
 
 ```markdown
 # Severity: {id}
@@ -81,7 +107,7 @@ Justification for Axis 2 (Severity). The Reasoning section is pasted directly in
 
 ## context_scope.md
 
-Justification for Axis 3 (Context Scope). Includes the context evidence table. The Reasoning section is pasted directly into the annotation platform.
+Justification for the Context Scope axis. Includes the context evidence table. The Reasoning section is pasted directly into the annotation platform.
 
 ```markdown
 # Context Scope: {id}
@@ -113,7 +139,7 @@ Justification for Axis 3 (Context Scope). Includes the context evidence table. T
 
 ## advanced.md
 
-Justification for Axis 4 (Advanced). The Reasoning section is pasted directly into the annotation platform.
+Justification for the Advanced axis. The Reasoning section is pasted directly into the annotation platform.
 
 ```markdown
 # Advanced: {id}
@@ -123,10 +149,11 @@ Justification for Axis 4 (Advanced). The Reasoning section is pasted directly in
 - **PR:** {pull_request_url}
 
 ## Label
-**{true | false}**
+**{False | Repo-specific conventions | Context outside changed files | Recent language / library updates | Better implementation approach}**
 
 ## Reasoning
 {Self-contained justification. 1-2 sentences explaining:
-- Whether the comment could be made from the diff alone
-- If true, which specific criterion it meets (repo conventions, external context, recent language/library updates, or better implementation approach)}
+- The Context Scope from the preceding step
+- The resulting Advanced value from the deterministic mapping
+- If the value is not `False`, name the specific beyond-diff knowledge the reviewer relied on}
 ```

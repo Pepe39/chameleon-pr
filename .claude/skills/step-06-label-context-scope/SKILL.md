@@ -7,9 +7,9 @@ Labels Axis 3 — Context Scope. Determines what level of context a reviewer wou
 - Step 05 completed (Severity labeled)
 
 ## Context
-> See `docs/axis-3-context-scope.md` for definitions, evaluation criteria, and examples.
+> See `docs/axis-4-context-scope.md` for definitions, evaluation criteria, and examples.
 > See `docs/steps/step8.md` for the step-by-step process.
-> See `DOCUMENTATION.md` sections 9 (FAQ), 10 (Common Mistakes), and 11 (Tips) for edge cases and pitfalls.
+> See `DOCUMENTATION.md` sections 11 (FAQ), 12 (Common Mistakes), and 13 (Tips) for edge cases and pitfalls.
 
 ## Arguments
 - `id` (required): Task ID
@@ -22,6 +22,8 @@ Read `task_info.md` — specifically the "Comment Analysis" section. Pay attenti
 
 - **"Beyond Diff" field:** This is step-03's preliminary assessment of whether the reviewer needed context beyond the diff. Your context_scope label must be consistent with it. If you disagree, you must explain why in the reasoning.
 - **"Context Consulted":** This lists what the analyst read to verify the comment. Be careful: the analyst may have read more than the reviewer needed. For example, the analyst might browse the full file to confirm a claim, but the reviewer could have made the comment from the diff alone. Do not inflate scope based on what was consulted for verification.
+
+If `work/thread.md` exists, read it as well. The body is a nested reply, and the thread helps you understand what the reviewer was actually asking about. The context array must still anchor on `file_path` and `diff_line` from the task inputs, which target the body, not the ancestor comments. Prior comments in the thread are not context entries. They are not lines of code.
 
 Update `progress.md`: step 06 status = "in-progress", Started = {timestamp ISO 8601}.
 

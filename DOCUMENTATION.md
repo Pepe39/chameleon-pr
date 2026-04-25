@@ -1,6 +1,8 @@
-# Code Review Quality Labeling — Complete Documentation
+# Code Review Quality Labeling. Complete Documentation
 
-Label code review comments across four axes — **Quality**, **Severity**, **Context Scope**, and **Advanced** — to build high-quality evaluation datasets for AI code review systems.
+Label code review comments across five axes. **Quality**, **Addressed**, **Severity**, **Context Scope**, and **Advanced**. The goal is to build high-quality evaluation datasets for AI code review systems.
+
+The `Addressed` axis is only labeled when the PR is merged. On open PRs the field is omitted.
 
 ---
 
@@ -10,19 +12,21 @@ Label code review comments across four axes — **Quality**, **Severity**, **Con
 2. [Comment States in GitHub](#2-comment-states-in-github)
 3. [Step-by-Step Labeling Workflow](#3-step-by-step-labeling-workflow)
 4. [Axis 1: Quality](#4-axis-1-quality)
-5. [Axis 2: Severity](#5-axis-2-severity)
-6. [Axis 3: Context Scope](#6-axis-3-context-scope)
-7. [Axis 4: Advanced](#7-axis-4-advanced)
-8. [Labeling Format & Examples](#8-labeling-format--examples)
-9. [Frequently Asked Questions](#9-frequently-asked-questions)
-10. [Common Mistakes](#10-common-mistakes)
-11. [Tips & Best Practices](#11-tips--best-practices)
+5. [Axis 2: Addressed](#5-axis-2-addressed)
+6. [Axis 3: Severity](#6-axis-3-severity)
+7. [Axis 4: Context Scope](#7-axis-4-context-scope)
+8. [Axis 5: Advanced](#8-axis-5-advanced)
+9. [Justification Quality Standards](#9-justification-quality-standards)
+10. [Labeling Format & Examples](#10-labeling-format--examples)
+11. [Frequently Asked Questions](#11-frequently-asked-questions)
+12. [Common Mistakes](#12-common-mistakes)
+13. [Tips & Best Practices](#13-tips--best-practices)
 
 ---
 
 ## 1. Project Overview
 
-This document provides step-by-step instructions for labeling code review comments with **Quality**, **Severity**, **Context Scope**, and **Advanced**. Comments may come from either human reviewers or AI code review — the labeling criteria are the same regardless of source.
+This document provides step-by-step instructions for labeling code review comments with **Quality**, **Addressed**, **Severity**, **Context Scope**, and **Advanced**. Comments may come from either human reviewers or AI code review. The labeling criteria are the same regardless of source.
 
 ### Why This Matters
 
@@ -39,16 +43,17 @@ For each labeling task, you will receive a JSON object with the following fields
 | **Review Comment** | `body` | The comment text you need to label |
 | **Navigation Links** | `discussion_url`, `repo_url` | `discussion_url` → comment on PR; `repo_url` → browse repo tree at correct commit |
 
-### The Four Labeling Axes
+### The Five Labeling Axes
 
-Every review comment is labeled across four independent axes. Each axis is evaluated independently — a comment can be helpful but nit-level, or wrong despite pointing at a critical issue.
+Every review comment is labeled across five independent axes. Each axis is evaluated independently. A comment can be helpful but nit-level, or wrong despite pointing at a critical issue.
 
 | # | Axis | Question |
 |---|---|---|
 | 1 | **Quality** | Is the comment helpful, unhelpful, or wrong? |
-| 2 | **Severity** | Is the issue nit, moderate, or critical? |
-| 3 | **Context Scope** | What level of context was needed — diff, file, repo, or external? |
-| 4 | **Advanced** | Does the comment go beyond what is obvious from the diff? (true / false) |
+| 2 | **Addressed** | Was the comment addressed, ignored, or a false positive in the merged code? Only labeled on merged PRs |
+| 3 | **Severity** | Is the issue nit, moderate, or critical? |
+| 4 | **Context Scope** | What level of context was needed. `diff`, `file`, `repo`, or `external` |
+| 5 | **Advanced** | Which kind of beyond-diff knowledge did the comment rely on. Five-value enum. `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach` |
 
 ---
 
@@ -109,7 +114,7 @@ When the original commit does not exist: recover context from the comment body a
 ### Workflow at a Glance
 
 ```
-STEP 0: Open PR → STEP 1: Find Comment → STEP 2: Review Diff → STEP 3: Browse Repo → STEP 4: Re-read Comment → STEP 5: Label 4 Axes
+STEP 0: Open PR → STEP 1: Find Comment → STEP 2: Review Diff → STEP 3: Browse Repo → STEP 4: Re-read Comment → STEP 5: Label 5 Axes
 ```
 
 Steps 1–3 may need to be repeated as you build understanding. Step 3 (Browse Repo) is only needed when the comment requires context beyond the changed files.
@@ -138,18 +143,19 @@ Read the `body` field in the input data again. This is the review comment you ne
 
 > **Tip:** Don't rush to label. Re-reading the comment after understanding the full diff often changes your initial impression.
 
-### Step 5: Label the Four Axes
+### Step 5: Label the Five Axes
 
 With the diff, comment, and any needed context in hand, assign labels for each axis:
 
 | Axis | Values |
 |---|---|
 | Quality | `helpful` / `unhelpful` / `wrong` |
+| Addressed | `addressed` / `ignored` / `false_positive`. Only for merged PRs. Omit on open PRs |
 | Severity | `nit` / `moderate` / `critical` |
 | Context Scope | `diff` / `file` / `repo` / `external` |
-| Advanced | `true` / `false` |
+| Advanced | `False` / `Repo-specific conventions` / `Context outside changed files` / `Recent language / library updates` / `Better implementation approach` |
 
-Record your labels in the JSON format described in the Labeling Format guide (Section 8).
+Record your labels in the JSON format described in the Labeling Format guide (Section 10).
 
 ---
 
@@ -233,7 +239,48 @@ When a comment makes multiple claims, evaluate each part individually. The most 
 
 ---
 
-## 5. Axis 2: Severity
+## 5. Axis 2: Addressed
+
+Determine whether the review comment was addressed in the merged PR. **This axis is only labeled when the PR is merged.** Skip the field entirely when the PR is still open.
+
+Choose exactly one of three values:
+
+| Value | Definition |
+|---|---|
+| **addressed** | The merged code was changed in a way that addresses the underlying concern raised in the comment. The fix does not have to match the reviewer's exact suggestion. Any change that resolves the issue counts. Also counts when the PR author or a reviewer stated they will fix it later or in another PR |
+| **ignored** | The merged code shows no changes related to the comment's concern, and no one dismissed the comment as invalid. The comment was simply not acted upon |
+| **false_positive** | The PR author or another participant explicitly pushed back on the comment's validity. They explained why the comment does not apply, is based on a misunderstanding, or points to a non-issue |
+
+### Decision Guide
+
+```
+Is the PR still open, not merged?
+  → Yes → Leave the field empty. Do not label
+  → No, PR is merged ↓
+
+Did someone reply saying the comment was incorrect, invalid, or unnecessary?
+  → Yes → FALSE_POSITIVE
+  → No ↓
+
+Was the code changed in a way that addresses the concern raised in the comment?
+  → Yes → ADDRESSED
+  → No ↓
+
+The comment was not acted upon and no one dismissed it.
+  → IGNORED
+```
+
+### Writing a Good Addressed Justification
+
+Three rules:
+
+1. **Self-contained.** Explain whether and how the comment was addressed using only evidence from the PR discussion and merged code. Do not mention quality, severity, context scope, or advanced. Those are separate axes.
+2. **Specific, not generic.** Name the specific commit, code change, or reply that demonstrates how the comment was handled. "The comment was addressed" without evidence is not a justification.
+3. **Check the final merged state.** Compare the comment's suggestion against what was actually merged. A comment can be addressed even if the exact suggestion was not followed. What matters is whether the underlying concern was resolved.
+
+---
+
+## 6. Axis 3: Severity
 
 Assess how severe the issue is that the review comment points out. **Severity measures the issue itself, not the quality of the comment.**
 
@@ -280,7 +327,7 @@ The same missing null check can be nit or critical depending on context:
 
 ---
 
-## 6. Axis 3: Context Scope
+## 7. Axis 4: Context Scope
 
 **Central Question:** "What did the reviewer have to read or know to make this comment?" It is NOT about where the comment appears. It is NOT about where the problematic code is. It IS about what information was needed to identify the issue.
 
@@ -370,37 +417,126 @@ If the target file is completely new in the PR (diff header `@@ -0,0 +1,N @@`, a
 
 ---
 
-## 7. Axis 4: Advanced
+## 8. Axis 5: Advanced
 
-Does the comment go beyond what is obvious from reading the files changed in the PR? This label is **derived automatically from Context Scope**.
+Does the comment go beyond what is obvious from reading the files changed in the PR, and if so, which kind of beyond-diff knowledge did the reviewer rely on?
+
+**Advanced is a 5-value string enum, not a boolean.** One of `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`. The label is derived automatically from Context Scope via the mapping below.
 
 ### Mapping Rule
 
 | Context Scope | Advanced |
 |---|---|
-| **diff** | False |
-| **file** | False |
-| **repo** | True (select the specific beyond-diff category) |
-| **external** | True (select the specific beyond-diff category) |
+| **diff** | `False` |
+| **file** | `False` |
+| **repo** | one of the four beyond-diff values |
+| **external** | one of the four beyond-diff values |
 
-You do not need to evaluate Axis 3 and Axis 4 separately. Once you determine the Context Scope, Advanced is automatically determined.
+You do not need to evaluate Context Scope and Advanced separately. Once you determine the Context Scope, whether Advanced is `False` or one of the four beyond-diff values is automatically determined.
 
-Diff and File are within the PR's files, so they do not require going "beyond." Repo and External are outside the PR's files, so they require knowledge beyond the changed files.
+Diff and File are within the PR's files, so no beyond-diff knowledge was needed. Advanced is `False`. Repo and External are outside the PR's files, so beyond-diff knowledge was needed. Advanced is one of the four non-False values.
 
-### Beyond-Diff Categories (when True)
+### Hard Rule
 
-When Context Scope is `repo` or `external`, select the primary driver:
+`context_scope = "repo"` with `advanced = "False"` is invalid. Same for `external` with `False`. Crossing the diff boundary is itself beyond-diff knowledge. If you reach that combination, one of the two labels is wrong. This is a blocking inconsistency that gates output generation and triggers a REPLACE in review.
 
-| Category | Description |
+### Beyond-Diff Values
+
+When Context Scope is `repo` or `external`, pick the value that best explains which kind of beyond-diff knowledge the reviewer relied on:
+
+| Value | Description |
 |---|---|
-| **Repo-Specific Conventions** | Pertains to conventions, patterns, or architectural decisions specific to this repository that are not universally known. |
-| **Context Outside Changed Files** | Requires knowledge from files not touched by the PR (base classes, shared utilities, config, API contracts). |
-| **Recent Language / Library Updates** | Requires awareness of recent or non-obvious language features, library behavior, deprecations, or framework semantics. |
-| **Better Implementation Approach** | Suggests a meaningfully better way to implement, not just style but a fundamentally improved design, algorithm, or API usage. |
+| **Repo-specific conventions** | Pertains to conventions, patterns, or architectural decisions specific to this repository that are not universally known. |
+| **Context outside changed files** | Requires knowledge from files not touched by the PR. Base classes, shared utilities, config, API contracts. |
+| **Recent language / library updates** | Requires awareness of recent or non-obvious language features, library behavior, deprecations, or framework semantics. |
+| **Better implementation approach** | Suggests a meaningfully better way to implement. Not just style, but a fundamentally improved design, algorithm, or API usage. |
 
 ---
 
-## 8. Labeling Format & Examples
+## 9. Justification Quality Standards
+
+Each axis produces its own justification field. These justifications power the feedback layer that helps reviewers calibrate over time. Low-quality justifications degrade the entire dataset.
+
+### A good justification
+
+- Addresses only the axis it belongs to
+- Names the specific code element, function, or variable involved
+- States the reasoning, not just the conclusion
+- Could stand alone as an explanation to a new annotator
+
+### A poor justification
+
+- Copies language from another axis, for example `because it is critical` in a quality justification
+- Is a one-word echo of the label, for example `Helpful because it is helpful`
+- Is generic enough to apply to any comment
+- Is absent or blank
+
+### Self-Containment Rule
+
+Think of the justification fields as independent paragraphs written by independent reviewers, one per axis. Each paragraph may only use information relevant to its axis. If your quality justification mentions severity, or your severity justification mentions context scope, those justifications are invalid.
+
+| Justification field | Only explain | Never mention |
+|---|---|---|
+| `quality_justification` | Why the comment is correct, incorrect, or useless | Addressed, severity, scope, advanced |
+| `addressed_justification` (merged PRs only) | Whether and how the comment was addressed in the merged code | Quality, severity, scope, advanced |
+| `severity_justification` | What specific impact or risk the issue poses | Quality, addressed, scope, advanced |
+| `context.why` entries | What each piece of evidence showed the reviewer | Quality, addressed, severity, advanced |
+| `advanced_justification` | Whether special beyond-diff knowledge was needed, and what it was | Quality, addressed, severity, scope |
+
+### Golden Example
+
+Use this as your calibration anchor. If your justifications are shorter, vaguer, or mix axes, revise them.
+
+**Task input.**
+
+- PR title. Add user search endpoint with pagination
+- File. `app/api/users/search.ts`
+- Diff line. `const qb = createQueryBuilder(User).where(filters);`
+- Comment under review. "This won't apply the tenant scoping. `asUserResponse` assumes the query is already tenant-filtered, so calling it on a global query will leak users from other tenants."
+
+**Labels and justifications.**
+
+`quality = helpful`
+
+> The reviewer correctly identifies that `createQueryBuilder(User).where(filters)` produces a global query. `filters` is a request-derived object and the surrounding handler never injects a `tenantId` predicate before passing it. `asUserResponse` trusts its caller to scope the query, so the comment names a real correctness gap and points at the right fix surface, the query builder, not the serializer.
+
+`severity = moderate`
+
+> The missing tenant predicate in `createQueryBuilder(User).where(filters)` would cause the search endpoint to return user rows that the caller is not entitled to see. The impact is a logically incorrect response set under a non-default code path, not an immediate exfiltration of credentials or destructive write. Moderate fits the framework's definition, that is "could affect behavior but unlikely to cause serious harm in the typical case". The fix is local to the query builder.
+
+`context_scope = repo`
+
+Context entries. Each `why` is standalone, line numbers live in `diff_line`:
+
+```json
+[
+  {
+    "diff_line": "DIFF",
+    "file_path": "app/api/users/search.ts",
+    "why": "Shows the offending call site. createQueryBuilder is invoked with no tenant predicate before filters are applied"
+  },
+  {
+    "diff_line": null,
+    "file_path": "app/serializers/userResponse.ts",
+    "why": "asUserResponse is defined here and contains no tenant check. It trusts callers to pass an already-scoped query, which is the convention the comment relies on"
+  },
+  {
+    "diff_line": null,
+    "file_path": "app/db/queryBuilder.ts",
+    "why": "createQueryBuilder is the generic factory. Verifies that no implicit tenant scope is added at construction time"
+  }
+]
+```
+
+`advanced = Context outside changed files`
+
+> The bug is invisible from the diff alone. Verifying the comment requires opening two files the PR did not touch. `app/serializers/userResponse.ts` to confirm `asUserResponse` has no internal tenant guard and trusts callers to pre-scope the query, and `app/db/queryBuilder.ts` to confirm `createQueryBuilder` does not auto-inject a tenant predicate at construction time. Because the determining knowledge lives in untouched files, the right enum value is `Context outside changed files` rather than `Repo-specific conventions`.
+
+If a justification you write is shorter than the examples above, vaguer about which code element it refers to, or mixes axes, rewrite it before submitting.
+
+---
+
+## 10. Labeling Format & Examples
 
 ### Worked Example 1: Helpful + Critical + File + Not Advanced
 
@@ -445,7 +581,7 @@ When Context Scope is `repo` or `external`, select the primary driver:
 
 ---
 
-## 9. Frequently Asked Questions
+## 11. Frequently Asked Questions
 
 ### How should I distinguish between Quality and Severity?
 
@@ -461,7 +597,7 @@ Yes. You still fill in `diff_line` for any context entry that points to a specif
 
 ---
 
-## 10. Common Mistakes
+## 12. Common Mistakes
 
 These mistakes reduce dataset quality and hurt model training. Review these patterns to avoid the most common errors.
 
@@ -497,13 +633,73 @@ These mistakes reduce dataset quality and hurt model training. Review these patt
 
 ### Mistake 5: Evaluating Advanced Independently
 
-**The Mistake:** Evaluating Advanced as an independent axis, assigning True to complex or insightful comments even when Context Scope is diff or file.
+**The Mistake:** Evaluating Advanced as an independent axis, picking a non-False value for complex or insightful comments even when Context Scope is `diff` or `file`. Or picking a non-False value based on how hard the comment was to write, instead of which beyond-diff knowledge the reviewer actually needed.
 
-**The Fix:** Advanced is derived from Context Scope. Diff or File maps to False. Repo or External maps to True. Do not override this mapping based on the comment's perceived difficulty or insight.
+**The Fix:** Advanced is derived from Context Scope. `diff` or `file` maps to `False`. `repo` or `external` maps to one of the four beyond-diff values. Do not override this mapping based on the comment's perceived difficulty or insight. Hardness is not the test. What information was required outside the diff is the test.
+
+### Mistake 6: Repo Scope With Advanced `False`
+
+**Hard rule.** If `context_scope = "repo"`, then `advanced` is never `False`. Same for `external`. Repo scope means the reviewer needed information from a file the PR did not touch, and that is by definition one of the four beyond-diff values. Almost always `Context outside changed files`.
+
+**The Mistake:** Marking `context_scope = "repo"` while leaving `advanced = "False"`. That combination is internally inconsistent. You have explicitly stated the reviewer pulled in information from outside the changed files and that no beyond-diff knowledge was needed.
+
+**The Fix:** If you choose `repo` or `external` scope, pick the matching Advanced value. The default is `Context outside changed files`. Use `Repo-specific conventions` if the reviewer relied on a general convention rather than a single specific file. If you cannot articulate which non-False Advanced value applies, the scope is probably not really `repo`. Re-check it.
+
+### Mistake 7: Underrating Context Scope When Multiple Files Were Read
+
+**The Mistake:** Selecting `file` scope when the reviewer actually had to open and read several other files in the repo to verify the comment, just because all the relevant logic happened to fit in one screen.
+
+**The Fix:** If verifying the claim required reading code in any file other than the one being commented on, scope is `repo`, not `file`. The number of files matters. The line count does not. Walk through your own reasoning and list every file you opened. That list determines the scope.
+
+### Mistake 8: Not Checking Out the Correct Commit
+
+**The Mistake:** Reviewing a PR comment against the main branch or any branch other than the exact commit the comment was written on. The file the comment refers to may have shifted, been renamed, or removed entirely since then.
+
+**The Fix:** Always check out the exact commit SHA that the PR comment was made on. The pipeline records this as `original_commit_id` or `comment_commit` in `task_info.md`. Verify your local file matches the diff line in the task. If it does not, you are reviewing the wrong code and your labels will be invalid.
+
+### Mistake 9: Vague Justifications Without Task Evidence
+
+**The Mistake:** Writing justifications that recycle the task title or PR description instead of pointing at the specific code element that drove the label decision.
+
+**The Fix:** Every justification must cite a concrete piece of evidence from the actual code. A variable name, a function, a return value, a contract. If a justification could be copy-pasted across ten unrelated PRs, it is too vague. Rewrite it to name the exact thing that made you choose the label.
+
+**Weak example (recycles PR text):**
+```
+quality: This is a refactor of the user search endpoint and the comment is helpful for the team.
+severity: Tenant leaks are bad.
+scope: Multiple files involved.
+advanced: Requires experience.
+```
+None of these would survive review. Each could be pasted into any unrelated PR.
+
+**Strong example (names the exact code element):**
+```
+quality: createQueryBuilder(User).where(filters) is built from a request-derived filters object with no tenant predicate. The comment correctly names the missing scope and the right fix surface, the query builder, not the serializer.
+severity: Returning UserResponse rows from other tenants is a logically incorrect response under a non-default code path. Moderate impact, fix is local to the query builder.
+scope: Verifying the bug requires opening userResponse.ts and queryBuilder.ts, neither of which the PR touches.
+advanced: Context outside changed files. asUserResponse is defined in an untouched file and trusts callers to pre-scope.
+```
+Each justification names the actual function or variable that drove the label.
+
+### Mistake 10: Line Numbers in the Wrong Places
+
+**The Rule:** Line numbers belong in `context.diff_line`. They do not belong in `quality_justification`, `addressed_justification`, `severity_justification`, `advanced_justification`, or the `why` field of a context entry. Justifications describe code semantically, by variable, function, or behavior.
+
+**The Mistake, line numbers in prose:**
+```
+quality_justification: The bug on line 168 ignores the value built on lines 161-163.
+```
+Line numbers go stale, duplicate the context array, and can drift from the actual `diff_line`.
+
+**The Fix, semantic anchors:**
+```
+quality_justification: The return statement passes the original monitor_environment.monitor.config instead of the prepared config variable built just above it.
+```
+Names the elements. The paired context entry holds the exact line.
 
 ---
 
-## 11. Tips & Best Practices
+## 13. Tips & Best Practices
 
 ### Quality
 - Quality and Severity are independent axes. A comment can be helpful but nit-level, or wrong about a critical issue.
@@ -519,10 +715,18 @@ These mistakes reduce dataset quality and hurt model training. Review these patt
 - `diff` means only the changed lines were needed — but those lines can span multiple files in the same PR.
 - `external` means the reviewer relied on knowledge outside the repo entirely — API docs, RFCs, language specs, etc.
 
+### Addressed
+- Only label on merged PRs. If the PR is still open, omit the field entirely.
+- `addressed` is generous. Any merged change that resolves the underlying concern counts, even if the exact suggestion was not followed.
+- `false_positive` requires an explicit rebuttal from the PR author or another participant. Silence is not rebuttal.
+- `ignored` is the default when the code did not change and no one dismissed the comment.
+
 ### Advanced
-- Advanced is derived from Context Scope. Diff or File = False. Repo or External = True.
+- Advanced is a 5-value string enum, not a boolean.
+- Advanced is derived from Context Scope. `diff` or `file` maps to `False`. `repo` or `external` maps to one of the four non-False values.
 - Do not evaluate Advanced separately. Once Context Scope is set, the mapping is automatic.
+- Hard rule. `repo` or `external` with `False` is invalid. If you see that combination, one of the two labels is wrong.
 
 ### General Workflow
 - Always double-check that the comment in the discussion matches the `body` field in the input data before labeling.
-- When unsure between two values, re-read the definitions — the answer is almost always in the exact wording of the axis rules.
+- When unsure between two values, re-read the definitions. The answer is almost always in the exact wording of the axis rules.

@@ -93,7 +93,7 @@ For each entry in `labels.json.context`:
 
 Scan these text streams:
 
-- Reasoning sections (`## Reasoning`) from all 4 deliverable `.md` files.
+- Reasoning sections (`## Reasoning`) from every deliverable `.md` file present. `quality.md`, `addressed.md` when merged, `severity.md`, `context_scope.md`, `advanced.md`.
 - Every `why` value in `context.json.rows[].dA0ihr`.
 - Every `why` value in `labels.json.context[].why`.
 
@@ -118,9 +118,25 @@ offending snippet (20 chars before and after) in the report.
 | id | Check |
 |---|---|
 | X1 | Each `*.md` file has a non-empty `## Reasoning` section (at least 40 chars after trimming whitespace). |
-| X2 | Advanced must be consistent with Context Scope via the deterministic mapping: if `context_scope` is `diff` or `file`, `advanced` must be `false`. If `context_scope` is `repo` or `external`, `advanced` must not be `false` (it must be one of the four beyond-diff categories). If this mapping is violated, report as `fail`. |
+| X2 | Advanced must be consistent with Context Scope via the deterministic mapping. If `context_scope` is `diff` or `file`, `advanced` must be the string `"False"`. If `context_scope` is `repo` or `external`, `advanced` must be one of the four beyond-diff enum strings `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`. Violation is `fail`. Hard rule. `repo` or `external` with `advanced = "False"` is ALWAYS a fail. |
 | X3 | If `context_scope == diff`, no entry in `labels.json.context` may have a `file_path` that is NOT in the PR's Changed Files List from `task_info.md`. |
 | X4 | If `context_scope == file` or `repo`, at least one entry must reference a file or line NOT present in the PR diff hunks (otherwise scope should be `diff`). |
+| X5 | Advanced is a string enum, never a JSON boolean. `labels.json.advanced` must be one of the five string values, never `true` or `false` as a JSON literal. |
+| X6 | Addressed must match the PR merged status recorded in `task_info.md`. If `PR Merged Status == merged`, `labels.json.addressed` must be one of `addressed`, `ignored`, `false_positive`. If `PR Merged Status != merged`, `labels.json` must not contain the `addressed` key at all. Mismatch is a `fail`. |
+
+### T - Thread and to_report (nested replies only)
+
+These checks only run when `work/thread.md` exists inside the task dir. When the file is absent, skip every T check. Do not treat the absence as a failure.
+
+| id | Check |
+|---|---|
+| T1 | `task_info.md` Input Data section contains a `Comment Type:` line. When `work/thread.md` exists, the value must be `nested reply`. When it is absent, the value must be `top-level`. Mismatch is a `fail`. |
+| T2 | When `work/thread.md` exists, none of the reasoning sections in the deliverable `.md` files may contradict the ancestor chain. Specifically, if the body answers a direct question from an ancestor, the Quality reasoning must not call the body vague or off-topic without referencing the thread. This is a soft check, report as `warn` when the reasoning ignores a clearly relevant ancestor. |
+| T3 | When `work/thread.md` exists, no entry in `labels.json.context` may point at an ancestor comment as if it were a line of code. Ancestor comments are not files and must not appear as `file_path`. |
+| T4 | When `work/thread.md` exists, `to_report.md` must exist at the root of the task directory. Missing file is a `fail`. When `work/thread.md` is absent, `to_report.md` must also be absent. A stray `to_report.md` on a top-level task is a `fail`. |
+| T5 | When `to_report.md` exists, it must contain exactly one data row with six cells. The row must start with the task id. The Status cell must be `done`. The Other task cell must be empty. Any other shape is a `fail`. |
+| T6 | When `to_report.md` exists, the row contents must pass the same wording checks as W1-W8. Forbidden characters anywhere in the cells are `fail`, not `warn`. Auto-fix rules apply the same way as for reasoning fields. |
+| T7 | When `to_report.md` exists, the Axis and Justification cell must contain the axis names in platform order. When `PR Merged Status == merged` the five names are `Quality`, `Addressed`, `Severity`, `Context`, `Advanced`. When the PR is not merged, `Addressed` must be absent from the cell and the four names are `Quality`, `Severity`, `Context`, `Advanced`. Each name must be followed by a label value and at least one sentence of justification. Missing axes or wrong order is a `fail`. |
 
 ## Reporting
 
