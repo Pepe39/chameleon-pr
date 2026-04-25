@@ -284,7 +284,9 @@ function fillDeliverablesPage(deliverables) {
   // Find the tightest container around a heading/label that holds a form control.
   // Walks up from a label whose text starts with `title` until the parent contains
   // at least one of the wanted control types AND no more than one Axis heading.
-  function findSection(title, wantedSelector = 'select, textarea, input[type="radio"], [role="radio"]') {
+  // Wanted selector includes custom dropdowns (button-based comboboxes used by
+  // some annotation-hub form components) in addition to native form controls.
+  function findSection(title, wantedSelector = 'select, textarea, input[type="radio"], [role="radio"], button[aria-haspopup="listbox"], [role="combobox"]') {
     const norm = s => (s || '').trim();
     const candidates = document.querySelectorAll('label, h1, h2, h3, h4, legend');
     for (const h of candidates) {
@@ -298,6 +300,32 @@ function fillDeliverablesPage(deliverables) {
       }
     }
     return null;
+  }
+
+  // Try multiple candidate titles in order. Returns the first section found.
+  // Used for axes whose label text varies between Annotation stage and Review
+  // stage, or between platform versions.
+  function findSectionAny(titles, wantedSelector) {
+    for (const t of titles) {
+      const s = findSection(t, wantedSelector);
+      if (s) return s;
+    }
+    return null;
+  }
+
+  // For diagnostic logging when a section is found but no control inside it
+  // matched the desired value. Lists every control text/value/aria-label so
+  // we can tell what the platform is actually rendering.
+  function dumpSectionControls(section) {
+    const controls = section.querySelectorAll('select, input, button, [role="radio"], [role="combobox"], [aria-haspopup]');
+    return Array.from(controls).slice(0, 20).map(c => ({
+      tag: c.tagName,
+      type: c.getAttribute('type'),
+      role: c.getAttribute('role'),
+      ariaLabel: c.getAttribute('aria-label'),
+      text: (c.textContent || '').trim().slice(0, 40),
+      value: c.value,
+    }));
   }
 
   async function clickRadio(section, value) {
@@ -481,11 +509,26 @@ function fillDeliverablesPage(deliverables) {
 
     await fillAxis('Axis 3: Severity', s.label || '', s.reasoning || '');
 
-    // Axis 4: Context label + entries
-    const ctxSection = findSection('Axis 4: Context');
-    if (ctxSection && c.label) {
-      if (await clickRadio(ctxSection, c.label)) results.filled++;
-      else results.errors.push(`Axis 4: label "${c.label}" not found`);
+    // Axis 4: Context label + entries. Try multiple title variants because
+    // some Annotation-stage forms render the label as "Axis 4: Context Scope"
+    // while Review-stage forms use the shorter "Axis 4: Context". Pre-Addressed
+    // tasks may still surface as "Axis 3: Context Scope".
+    const ctxSection = findSectionAny([
+      'Axis 4: Context Scope',
+      'Axis 4: Context',
+      'Axis 3: Context Scope',
+    ]);
+    if (!ctxSection) {
+      console.error('[code-review] Context Scope section not found. Tried Axis 4: Context Scope, Axis 4: Context, Axis 3: Context Scope');
+      results.errors.push('Context Scope section not found, tried Axis 4: Context Scope / Axis 4: Context / Axis 3: Context Scope');
+    } else if (c.label) {
+      if (await clickRadio(ctxSection, c.label)) {
+        results.filled++;
+      } else {
+        const dump = dumpSectionControls(ctxSection);
+        console.error('[code-review] Context Scope label not selectable. label=' + JSON.stringify(c.label) + ' controls=' + JSON.stringify(dump));
+        results.errors.push(`Context Scope label "${c.label}" not selectable in section. Open dev tools console for control dump`);
+      }
     }
     if (Array.isArray(c.entries) && c.entries.length) {
       await fillContextEntries(c.entries);
