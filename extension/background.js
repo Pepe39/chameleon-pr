@@ -331,6 +331,7 @@ function fillDeliverablesPage(deliverables) {
   async function clickRadio(section, value) {
     if (!section) return false;
     const want = value.trim().toLowerCase();
+    const wantNorm = want.replace(/\s+/g, ' ');
 
     // 1. Native <select> dropdown
     const select = section.querySelector('select');
@@ -349,7 +350,36 @@ function fillDeliverablesPage(deliverables) {
       }
     }
 
-    // 2. Radios / role=radio / buttons
+    // 2. Custom combobox (Radix UI, Headless UI, etc). The trigger button
+    // exposes role="combobox" or aria-haspopup="listbox". Options live in a
+    // separate listbox that opens on click and is often portaled to <body>.
+    const combo = section.querySelector('button[aria-haspopup="listbox"], [role="combobox"]');
+    if (combo) {
+      combo.click();
+      await delay(180);
+      // Options can be portaled outside the section, search the whole document
+      const options = Array.from(document.querySelectorAll('[role="option"]'));
+      for (const o of options) {
+        const text = ((o.getAttribute('aria-label') || '') + ' ' + (o.textContent || ''))
+          .trim().toLowerCase().replace(/\s+/g, ' ');
+        if (text === wantNorm || text.startsWith(wantNorm + ' ') || text.startsWith(wantNorm + ',')) {
+          o.click();
+          await delay(120);
+          return true;
+        }
+      }
+      // No exact-prefix match, log what options were available before closing
+      const dump = options.slice(0, 12).map(o => ({
+        ariaLabel: o.getAttribute('aria-label'),
+        text: (o.textContent || '').trim().slice(0, 40),
+      }));
+      console.error('[code-review] Combobox open but no [role=option] matched ' + JSON.stringify(want) + '. Options seen: ' + JSON.stringify(dump));
+      // Close the menu by clicking trigger again
+      combo.click();
+      await delay(80);
+    }
+
+    // 3. Radios / role=radio / buttons within the section
     const radios = section.querySelectorAll('input[type="radio"], [role="radio"], button');
     for (const r of radios) {
       const label =
@@ -358,12 +388,14 @@ function fillDeliverablesPage(deliverables) {
         r.textContent ||
         r.closest('label')?.textContent ||
         '';
-      if (label.trim().toLowerCase() === want) {
+      const norm = label.trim().toLowerCase().replace(/\s+/g, ' ');
+      if (norm === wantNorm) {
         r.click();
         await delay(80);
         return true;
       }
     }
+
     return false;
   }
 
