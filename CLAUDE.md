@@ -99,15 +99,30 @@ The following characters MUST NEVER appear in any justification, reasoning, feed
 
 - Em-dash `—`
 - En-dash `–`
-- Hyphen `-` used as a sentence connector (hyphens are only allowed inside compound words like `focus-loss` or numeric ranges like `lines 83-120`, never as a substitute for a comma or em-dash)
+- Hyphen `-` used as a sentence connector (hyphens are only allowed inside compound words like `focus-loss`, never as a substitute for a comma or em-dash, and never to express line ranges in prose, see the line-number rule below)
 - Semicolon `;`
 - Colon `:` (except inside file paths like `src/foo.ts:42`)
 
 If you catch yourself typing one of these to join clauses or introduce an aside, stop and rewrite as two separate sentences. After writing any feedback or reasoning, do a final pass searching for `—`, `–`, `;`, and stray `:` and rewrite those sentences before saving.
 
+### ZERO TOLERANCE: line numbers outside `context.diff_line`
+
+Line numbers (any form: `line 125`, `lines 83-120`, `on line 42`, `at L17`, `from 161 to 163`, etc.) MUST ONLY appear inside the `diff_line` field of `context.json` and the `diff_line` column of `context_scope.md`. They are FORBIDDEN in every other text output, including:
+
+- `quality.md` reasoning / Quality Justification
+- `severity.md` reasoning / Severity Justification
+- `addressed.md` reasoning / Addressed Justification
+- `advanced.md` reasoning / Advanced Justification
+- The `why` field of any context entry (in `context.json` or `context_scope.md`)
+- `task_info.md`, `to_report.md`, and `feedback_to_cb.md`
+
+Justifications describe code semantically, by variable, function, class, or behavior. Anchor claims to identifiers (`build_layer2a`, `agg_exprs`, the `else` branch) instead of to coordinates. Line numbers go stale, duplicate the context array, and can drift from the actual `diff_line`.
+
+Before saving any justification or reasoning text, scan for the words `line` and `lines` followed by digits and rewrite each occurrence into a semantic anchor. The only valid place for a numeric line coordinate is the `diff_line` field.
+
 ### Prohibited
 - **Em-dashes** (`—`): split into two sentences or use commas instead
-- **En-dashes** (`–`): use hyphens (`-`) for ranges (e.g., "lines 83-120")
+- **En-dashes** (`–`): use hyphens (`-`) for ranges that are NOT line numbers (line ranges belong in `diff_line`)
 - **Ellipsis character** (`…`): use three dots (`...`) if needed
 - **Smart/curly quotes** (`""''`): use straight quotes (`""''`) only
 
