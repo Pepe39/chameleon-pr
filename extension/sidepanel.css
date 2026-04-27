@@ -1,8 +1,13 @@
 * { box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif; }
 body { margin: 0; background: #0f1115; color: #e5e7eb; font-size: 13px; }
 .container { padding: 12px; }
-h1 { font-size: 15px; margin: 0 0 10px; }
+h1 { font-size: 15px; margin: 0; }
 .version-tag { font-size: 10px; color: #9ca3af; font-weight: normal; margin-left: 6px; font-family: ui-monospace, monospace; }
+.header-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 10px; }
+.icon-btn { background: #1a1f2a; color: #9ca3af; border: 1px solid #2a2f3a; border-radius: 6px; padding: 5px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: color 0.15s, border-color 0.15s, background 0.15s; }
+.icon-btn:hover { color: #3b82f6; border-color: #3b82f6; background: #0f1115; }
+.icon-btn:active { transform: scale(0.95); }
+.icon-btn.spinning svg { animation: spin 0.8s linear infinite; }
 .tabs { display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid #2a2f3a; }
 .tab { background: none; border: none; color: #9ca3af; padding: 6px 10px; cursor: pointer; font-size: 12px; }
 .tab.active { color: #fff; border-bottom: 2px solid #3b82f6; }

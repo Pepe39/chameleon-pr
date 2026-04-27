@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Code Review Labeler",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Scrape annotation-platform tasks, run the /run pipeline via Claude, and fill deliverables back into the platform. Supports the 5-axis model with Addressed as a 4-value enum (empty, addressed, ignored, false_positive) including non-merged PRs.",
   "permissions": ["activeTab", "scripting", "storage", "tabs", "sidePanel"],
   "host_permissions": [

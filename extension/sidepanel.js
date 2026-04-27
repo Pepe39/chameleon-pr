@@ -309,8 +309,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   resyncBtn.addEventListener('click', () => {
-    showStatus('Resyncing...', 'info');
-    detect().then(() => showStatus('Resynced', 'success'));
+    showStatus('Rescraping task data...', 'info');
+    resyncBtn.classList.add('spinning');
+    resyncBtn.disabled = true;
+    detect().finally(() => {
+      resyncBtn.classList.remove('spinning');
+      resyncBtn.disabled = false;
+      showStatus('Rescraped', 'success');
+    });
   });
 
   detect();
