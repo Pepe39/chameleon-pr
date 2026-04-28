@@ -21,18 +21,18 @@ The structured output for submission. Contains all five axis labels and the cont
       "why": "short phrase explaining why this context matters (string)"
     }
   ],
-  "advanced": "False | Repo-specific conventions | Context outside changed files | Recent language / library updates | Better implementation approach"
+  "advanced": "FALSE | Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach"
 }
 ```
 
 **Rules:**
 - 2-space indentation
-- `advanced` is a string enum, not a boolean. One of the five values `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`
+- `advanced` is a string enum, not a boolean. One of the five values `FALSE`, `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`
 - `addressed` is a string enum with four values. `empty`, `addressed`, `ignored`, `false_positive`. The value `empty` is an active selection used ONLY when the PR is OPEN. Closed PRs (merged or closed-without-merge) get one of the other three. The field is always present in `labels.json`
 - `diff_line` is a string like `"42"` or `"83-120"`, or `null`. Never a number
 - `context` must have at least 1 entry when context_scope is `diff`, `file`, or `repo`
 - `context` may be `[]` when context_scope is `external`
-- Hard rule. If `context_scope` is `repo` or `external`, then `advanced` must not be `False`. That combination is invalid by definition because crossing the diff boundary is itself beyond-diff knowledge
+- Hard rule. If `context_scope` is `repo` or `external`, then `advanced` must not be `FALSE`. That combination is invalid by definition because crossing the diff boundary is itself beyond-diff knowledge
 - Hard rule. If `addressed` is `empty`, the PR must be OPEN. If `addressed` is one of `addressed`, `ignored`, `false_positive`, the PR must be closed (merged or closed-without-merge). Mismatch is invalid
 
 ---
@@ -151,11 +151,11 @@ Justification for the Advanced axis. The Reasoning section is pasted directly in
 - **PR:** {pull_request_url}
 
 ## Label
-**{False | Repo-specific conventions | Context outside changed files | Recent language / library updates | Better implementation approach}**
+**{FALSE | Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach}**
 
 ## Reasoning
 {Self-contained justification. 1-2 sentences explaining:
 - The Context Scope from the preceding step
 - The resulting Advanced value from the deterministic mapping
-- If the value is not `False`, name the specific beyond-diff knowledge the reviewer relied on}
+- If the value is not `FALSE`, name the specific beyond-diff knowledge the reviewer relied on}
 ```

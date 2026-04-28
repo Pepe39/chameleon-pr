@@ -113,6 +113,18 @@ def parse_axis_md(text, axis_kind):
                       "recent language / library updates", "recent language/library updates",
                       "better implementation approach", "false"},
     }
+    # Canonical-case map. Platform validator is case-sensitive. FALSE is all
+    # uppercase per dataset convention, the four beyond-diff values are mixed
+    # case starting with capital. Recent language/library updates uses NO
+    # spaces around the slash. The lowercase set above is for matching only.
+    advanced_canonical = {
+        "false": "FALSE",
+        "repo-specific conventions": "Repo-specific conventions",
+        "context outside changed files": "Context outside changed files",
+        "recent language/library updates": "Recent language/library updates",
+        "recent language / library updates": "Recent language/library updates",
+        "better implementation approach": "Better implementation approach",
+    }
     labels = label_sets.get(axis_kind, set())
     label = ""
     label_idx = -1
@@ -122,9 +134,9 @@ def parse_axis_md(text, axis_kind):
             label = clean
             label_idx = i
             break
-    # Normalize Advanced enum to the canonical spaced form
-    if axis_kind == "advanced" and label == "recent language/library updates":
-        label = "recent language / library updates"
+    # Map matched lowercase form to the platform's canonical case for Advanced
+    if axis_kind == "advanced" and label in advanced_canonical:
+        label = advanced_canonical[label]
     # Reasoning = everything after a "Reasoning" or "Justification" heading
     reasoning = ""
     for i in range(label_idx + 1, len(lines)):

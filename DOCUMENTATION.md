@@ -53,7 +53,7 @@ Every review comment is labeled across five independent axes. Each axis is evalu
 | 2 | **Addressed** | Was the comment addressed, ignored, a false positive, or empty? 4-value enum. `empty` only when the PR is OPEN. Closed PRs (merged or not) are evaluated as final |
 | 3 | **Severity** | Is the issue nit, moderate, or critical? |
 | 4 | **Context Scope** | What level of context was needed. `diff`, `file`, `repo`, or `external` |
-| 5 | **Advanced** | Which kind of beyond-diff knowledge did the comment rely on. Five-value enum. `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach` |
+| 5 | **Advanced** | Which kind of beyond-diff knowledge did the comment rely on. Five-value enum. `FALSE`, `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach` |
 
 ---
 
@@ -153,7 +153,7 @@ With the diff, comment, and any needed context in hand, assign labels for each a
 | Addressed | `empty` / `addressed` / `ignored` / `false_positive`. `empty` ONLY on OPEN PRs. Closed PRs (merged or not) get one of the other three |
 | Severity | `nit` / `moderate` / `critical` |
 | Context Scope | `diff` / `file` / `repo` / `external` |
-| Advanced | `False` / `Repo-specific conventions` / `Context outside changed files` / `Recent language / library updates` / `Better implementation approach` |
+| Advanced | `FALSE` / `Repo-specific conventions` / `Context outside changed files` / `Recent language/library updates` / `Better implementation approach` |
 
 Record your labels in the JSON format described in the Labeling Format guide (Section 10).
 
@@ -424,24 +424,24 @@ If the target file is completely new in the PR (diff header `@@ -0,0 +1,N @@`, a
 
 Does the comment go beyond what is obvious from reading the files changed in the PR, and if so, which kind of beyond-diff knowledge did the reviewer rely on?
 
-**Advanced is a 5-value string enum, not a boolean.** One of `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`. The label is derived automatically from Context Scope via the mapping below.
+**Advanced is a 5-value string enum, not a boolean.** One of `FALSE`, `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`. The label is derived automatically from Context Scope via the mapping below.
 
 ### Mapping Rule
 
 | Context Scope | Advanced |
 |---|---|
-| **diff** | `False` |
-| **file** | `False` |
+| **diff** | `FALSE` |
+| **file** | `FALSE` |
 | **repo** | one of the four beyond-diff values |
 | **external** | one of the four beyond-diff values |
 
-You do not need to evaluate Context Scope and Advanced separately. Once you determine the Context Scope, whether Advanced is `False` or one of the four beyond-diff values is automatically determined.
+You do not need to evaluate Context Scope and Advanced separately. Once you determine the Context Scope, whether Advanced is `FALSE` or one of the four beyond-diff values is automatically determined.
 
-Diff and File are within the PR's files, so no beyond-diff knowledge was needed. Advanced is `False`. Repo and External are outside the PR's files, so beyond-diff knowledge was needed. Advanced is one of the four non-False values.
+Diff and File are within the PR's files, so no beyond-diff knowledge was needed. Advanced is `FALSE`. Repo and External are outside the PR's files, so beyond-diff knowledge was needed. Advanced is one of the four non-FALSE values.
 
 ### Hard Rule
 
-`context_scope = "repo"` with `advanced = "False"` is invalid. Same for `external` with `False`. Crossing the diff boundary is itself beyond-diff knowledge. If you reach that combination, one of the two labels is wrong. This is a blocking inconsistency that gates output generation and triggers a REPLACE in review.
+`context_scope = "repo"` with `advanced = "FALSE"` is invalid. Same for `external` with `FALSE`. Crossing the diff boundary is itself beyond-diff knowledge. If you reach that combination, one of the two labels is wrong. This is a blocking inconsistency that gates output generation and triggers a REPLACE in review.
 
 ### Beyond-Diff Values
 
@@ -451,7 +451,7 @@ When Context Scope is `repo` or `external`, pick the value that best explains wh
 |---|---|
 | **Repo-specific conventions** | Pertains to conventions, patterns, or architectural decisions specific to this repository that are not universally known. |
 | **Context outside changed files** | Requires knowledge from files not touched by the PR. Base classes, shared utilities, config, API contracts. |
-| **Recent language / library updates** | Requires awareness of recent or non-obvious language features, library behavior, deprecations, or framework semantics. |
+| **Recent language/library updates** | Requires awareness of recent or non-obvious language features, library behavior, deprecations, or framework semantics. |
 | **Better implementation approach** | Suggests a meaningfully better way to implement. Not just style, but a fundamentally improved design, algorithm, or API usage. |
 
 ---
@@ -636,17 +636,17 @@ These mistakes reduce dataset quality and hurt model training. Review these patt
 
 ### Mistake 5: Evaluating Advanced Independently
 
-**The Mistake:** Evaluating Advanced as an independent axis, picking a non-False value for complex or insightful comments even when Context Scope is `diff` or `file`. Or picking a non-False value based on how hard the comment was to write, instead of which beyond-diff knowledge the reviewer actually needed.
+**The Mistake:** Evaluating Advanced as an independent axis, picking a non-FALSE value for complex or insightful comments even when Context Scope is `diff` or `file`. Or picking a non-FALSE value based on how hard the comment was to write, instead of which beyond-diff knowledge the reviewer actually needed.
 
-**The Fix:** Advanced is derived from Context Scope. `diff` or `file` maps to `False`. `repo` or `external` maps to one of the four beyond-diff values. Do not override this mapping based on the comment's perceived difficulty or insight. Hardness is not the test. What information was required outside the diff is the test.
+**The Fix:** Advanced is derived from Context Scope. `diff` or `file` maps to `FALSE`. `repo` or `external` maps to one of the four beyond-diff values. Do not override this mapping based on the comment's perceived difficulty or insight. Hardness is not the test. What information was required outside the diff is the test.
 
-### Mistake 6: Repo Scope With Advanced `False`
+### Mistake 6: Repo Scope With Advanced `FALSE`
 
-**Hard rule.** If `context_scope = "repo"`, then `advanced` is never `False`. Same for `external`. Repo scope means the reviewer needed information from a file the PR did not touch, and that is by definition one of the four beyond-diff values. Almost always `Context outside changed files`.
+**Hard rule.** If `context_scope = "repo"`, then `advanced` is never `FALSE`. Same for `external`. Repo scope means the reviewer needed information from a file the PR did not touch, and that is by definition one of the four beyond-diff values. Almost always `Context outside changed files`.
 
-**The Mistake:** Marking `context_scope = "repo"` while leaving `advanced = "False"`. That combination is internally inconsistent. You have explicitly stated the reviewer pulled in information from outside the changed files and that no beyond-diff knowledge was needed.
+**The Mistake:** Marking `context_scope = "repo"` while leaving `advanced = "FALSE"`. That combination is internally inconsistent. You have explicitly stated the reviewer pulled in information from outside the changed files and that no beyond-diff knowledge was needed.
 
-**The Fix:** If you choose `repo` or `external` scope, pick the matching Advanced value. The default is `Context outside changed files`. Use `Repo-specific conventions` if the reviewer relied on a general convention rather than a single specific file. If you cannot articulate which non-False Advanced value applies, the scope is probably not really `repo`. Re-check it.
+**The Fix:** If you choose `repo` or `external` scope, pick the matching Advanced value. The default is `Context outside changed files`. Use `Repo-specific conventions` if the reviewer relied on a general convention rather than a single specific file. If you cannot articulate which non-FALSE Advanced value applies, the scope is probably not really `repo`. Re-check it.
 
 ### Mistake 7: Underrating Context Scope When Multiple Files Were Read
 
@@ -727,9 +727,9 @@ Names the elements. The paired context entry holds the exact line.
 
 ### Advanced
 - Advanced is a 5-value string enum, not a boolean.
-- Advanced is derived from Context Scope. `diff` or `file` maps to `False`. `repo` or `external` maps to one of the four non-False values.
+- Advanced is derived from Context Scope. `diff` or `file` maps to `FALSE`. `repo` or `external` maps to one of the four non-FALSE values.
 - Do not evaluate Advanced separately. Once Context Scope is set, the mapping is automatic.
-- Hard rule. `repo` or `external` with `False` is invalid. If you see that combination, one of the two labels is wrong.
+- Hard rule. `repo` or `external` with `FALSE` is invalid. If you see that combination, one of the two labels is wrong.
 
 ### General Workflow
 - Always double-check that the comment in the discussion matches the `body` field in the input data before labeling.

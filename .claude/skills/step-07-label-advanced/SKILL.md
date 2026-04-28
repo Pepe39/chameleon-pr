@@ -29,14 +29,14 @@ Read the `context_scope` label set in step 06. Apply this deterministic mapping:
 
 | Context Scope | Advanced |
 |---|---|
-| **diff** | False |
-| **file** | False |
+| **diff** | FALSE |
+| **file** | FALSE |
 | **repo** | True (select the specific beyond-diff category) |
 | **external** | True (select the specific beyond-diff category) |
 
 You do not need to evaluate Axis 3 and Axis 4 separately. Once Context Scope is determined, Advanced is automatic.
 
-**Why this mapping works:** Axis 4 asks whether the comment requires knowledge beyond the files changed in the PR. The files touched by the PR include the changed lines (the diff) and the unchanged lines of those same files. Diff and File are within the PR's files, so Advanced is False. Repo and External are outside the PR's files, so Advanced is True.
+**Why this mapping works:** Axis 4 asks whether the comment requires knowledge beyond the files changed in the PR. The files touched by the PR include the changed lines (the diff) and the unchanged lines of those same files. Diff and File are within the PR's files, so Advanced is FALSE. Repo and External are outside the PR's files, so Advanced is True.
 
 ### 3. Select beyond-diff category (only when True)
 
@@ -46,7 +46,7 @@ If Context Scope is `repo` or `external`, select the category that best explains
 |---|---|
 | **Repo-specific conventions** | Pertains to conventions, patterns, or architectural decisions specific to this repo. |
 | **Context outside changed files** | Requires knowledge from files not touched by the PR. |
-| **Recent language / library updates** | Requires awareness of recent or non-obvious language/framework behavior. |
+| **Recent language/library updates** | Requires awareness of recent or non-obvious language/framework behavior. |
 | **Better implementation approach** | Suggests a fundamentally better design, algorithm, or API usage (not just style). |
 
 If more than one category applies, pick the primary driver.
@@ -64,7 +64,7 @@ Add to the Labels section:
 
 ```markdown
 ### Advanced
-- **Label:** {Repo-specific conventions | Context outside changed files | Recent language / library updates | Better implementation approach | False}
+- **Label:** {Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach | FALSE}
 - **Reasoning:** {1-2 sentences explaining the mapping derivation}
 ```
 

@@ -79,7 +79,7 @@ The comment was not acted upon and no one dismissed it.
 - **Silence is not false positive.** Without an explicit rebuttal, the default is `ignored`. Do not label `false_positive` just because the code was not changed.
 - **Compare against merged state, not HEAD at comment time.** Follow the thread to whatever actually shipped.
 - **Loose acknowledgment counts as addressed.** If the author says `good catch, will fix in another PR` and the underlying concern was genuine, the label is `addressed`, not `ignored`. The acknowledgment is the action.
-- **False positive requires an accurate rebuttal.** If someone pushes back but their argument is wrong, the comment is not a false positive. It is still `addressed` or `ignored` depending on what happened to the code.
+- **`false_positive` requires an accurate rebuttal.** If someone pushes back but their argument is wrong, the comment is not a false positive. It is still `addressed` or `ignored` depending on what happened to the code.
 - **Do not couple Addressed with Quality.** A `wrong` comment can still be `addressed` if the PR author was convinced and changed the code anyway. Rate the merged outcome, not the comment's correctness.
 
 ### 6. Write reasoning

@@ -200,22 +200,22 @@ Decide. Which kind of beyond-diff knowledge did the reviewer rely on?
 
 | Value | When to pick it |
 |---|---|
-| **False** | The comment could be made by reading only the changed lines. Typos, syntax errors, obvious logic bugs, style visible in the diff. |
+| **FALSE** | The comment could be made by reading only the changed lines. Typos, syntax errors, obvious logic bugs, style visible in the diff. |
 | **Repo-specific conventions** | Relies on a convention, pattern, or architectural decision specific to this repository. |
 | **Context outside changed files** | Requires reading files the PR did not touch. Base classes, shared utilities, configs, API contracts. |
-| **Recent language / library updates** | Requires knowing a recent or non-obvious language feature, library behavior, deprecation, or framework semantic. |
+| **Recent language/library updates** | Requires knowing a recent or non-obvious language feature, library behavior, deprecation, or framework semantic. |
 | **Better implementation approach** | Suggests a meaningfully better design, algorithm, or API usage. Not a style preference, a fundamentally different approach. |
 
 **Advanced is derived from Context Scope.** The mapping:
 
 | Context Scope | Advanced |
 |---|---|
-| `diff` | `False` |
-| `file` | `False` |
-| `repo` | one of the four non-False values |
-| `external` | one of the four non-False values |
+| `diff` | `FALSE` |
+| `file` | `FALSE` |
+| `repo` | one of the four non-FALSE values |
+| `external` | one of the four non-FALSE values |
 
-**Hard rule.** `repo` or `external` scope with `advanced = "False"` is invalid. If you reach that combination, one of the two labels is wrong. Go back and re-check scope.
+**Hard rule.** `repo` or `external` scope with `advanced = "FALSE"` is invalid. If you reach that combination, one of the two labels is wrong. Go back and re-check scope.
 
 ---
 
@@ -241,7 +241,7 @@ Compile your labels into the output format. The `addressed` field is only presen
       "why": "Config is created and transformed here"
     }
   ],
-  "advanced": "False"
+  "advanced": "FALSE"
 }
 ```
 
@@ -253,7 +253,7 @@ Compile your labels into the output format. The `addressed` field is only presen
 - [ ] Context scope reflects the broadest level needed
 - [ ] Context array lists all evidence the reviewer used
 - [ ] Advanced is the string enum value, not `true/false`
-- [ ] `repo` or `external` scope is never paired with `advanced = "False"`
+- [ ] `repo` or `external` scope is never paired with `advanced = "FALSE"`
 - [ ] All five axes are evaluated independently
 
 ---
@@ -266,12 +266,12 @@ Compile your labels into the output format. The `addressed` field is only presen
 | **Addressed** | empty / addressed / ignored / false_positive | `empty` ONLY on OPEN PRs. Closed PRs (merged or closed-no-merge) get one of the other three. Silence on a closed PR is not a false positive, default is `ignored` |
 | **Severity** | nit / moderate / critical | Rate the issue, not the comment |
 | **Context Scope** | diff / file / repo / external | Pick the broadest level needed |
-| **Advanced** | False / Repo-specific conventions / Context outside changed files / Recent language / library updates / Better implementation approach | Derived from scope. `diff` or `file` maps to `False`. `repo` or `external` maps to one of the four non-False values |
+| **Advanced** | FALSE / Repo-specific conventions / Context outside changed files / Recent language/library updates / Better implementation approach | Derived from scope. `diff` or `file` maps to `FALSE`. `repo` or `external` maps to one of the four non-FALSE values |
 
 ### Independence Rule
 
 All five axes are **independent**. Any combination is valid:
-- Helpful plus Nit plus Diff plus `False`. Good comment about a minor style issue
-- Wrong plus Critical plus File plus `False`. Incorrect claim about a severe issue
+- Helpful plus Nit plus Diff plus `FALSE`. Good comment about a minor style issue
+- Wrong plus Critical plus File plus `FALSE`. Incorrect claim about a severe issue
 - Helpful plus Critical plus Repo plus `Context outside changed files`. Catches a real bug using knowledge from an untouched file
 - Helpful plus Moderate plus Repo plus `Repo-specific conventions` plus `addressed`. On a merged PR where the team followed the convention in a later commit

@@ -330,7 +330,7 @@ Axis 4: Context
 Axis 5: Advanced *
 ...prompt text...
 
-{Label}              <-- one of: Repo-specific conventions, Context outside changed files, Recent language / library updates, Better implementation approach, False
+{Label}              <-- one of: Repo-specific conventions, Context outside changed files, Recent language/library updates, Better implementation approach, FALSE
 Axis 5: Advanced Justification
 {Reasoning text}
 ```
@@ -342,7 +342,7 @@ Extract and record:
 - `context_scope_label`, `context_entries[]` (each with diff_line, file_path, why)
 - `advanced_label`, `advanced_reasoning`
 
-Normalize **all** labels to lowercase for comparison, including advanced (e.g., "False" and "false" are the same; "Context outside changed files" and "context outside changed files" are the same). The annotation platform's combo box stores them in lowercase, so lowercase is the canonical form. Never propose a fix that only changes letter casing.
+Casing matters for the Advanced axis per the platform validator. The canonical forms are `FALSE` (all uppercase) and `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach` (mixed case starting with capital). Match case-insensitively when reading from pasted platform text, but ALWAYS write the canonical case-sensitive form to `fixed_deliverables/`. The other axes (Quality, Severity, Context Scope, Addressed) use lowercase enums.
 
 ---
 
@@ -542,8 +542,8 @@ Advanced is derived from Context Scope using a deterministic mapping:
 
 | Context Scope | Advanced |
 |---|---|
-| **diff** | False |
-| **file** | False |
+| **diff** | FALSE |
+| **file** | FALSE |
 | **repo** | True (select the specific beyond-diff category) |
 | **external** | True (select the specific beyond-diff category) |
 
@@ -553,7 +553,7 @@ If the context_scope from step 4c is `repo` or `external`, select the category t
 |---|---|
 | **Repo-specific conventions** | Comment references patterns, conventions, or architectural decisions specific to this repo |
 | **Context outside changed files** | Comment requires knowledge from files not touched by the PR |
-| **Recent language / library updates** | Comment requires awareness of recent or non-obvious language/framework behavior |
+| **Recent language/library updates** | Comment requires awareness of recent or non-obvious language/framework behavior |
 | **Better implementation approach** | Comment suggests a fundamentally better design, algorithm, or API usage (not just style) |
 
 Record your independent label derived from the mapping. Compare against the task's label.
@@ -589,7 +589,7 @@ Run these as secondary validation:
 | F1 | quality label is one of: `helpful`, `unhelpful`, `wrong` | Exact match (case-insensitive) |
 | F2 | severity label is one of: `nit`, `moderate`, `critical` | Exact match (case-insensitive) |
 | F3 | context_scope label is one of: `diff`, `file`, `repo`, `external` | Exact match (case-insensitive) |
-| F4 | advanced label is one of: `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`, `False` | **Case-insensitive** match. The platform's combo box uses lowercase (`false`, `context outside changed files`, etc.) and that is the canonical, valid form. NEVER flag a label as wrong just because of casing. Casing is not a defect. |
+| F4 | advanced label is one of: `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`, `FALSE` | Match input case-insensitively, but ALWAYS write the canonical case to `fixed_deliverables/`. The platform validator is case-sensitive. `FALSE` is uppercase, the four beyond-diff values are mixed case starting with capital. Flag a label as wrong if its casing differs from the canonical form when written to deliverables. |
 
 #### 5b. Context entries
 
