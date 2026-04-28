@@ -2,7 +2,7 @@
 
 Label code review comments across five axes. **Quality**, **Addressed**, **Severity**, **Context Scope**, and **Advanced**. The goal is to build high-quality evaluation datasets for AI code review systems.
 
-The `Addressed` axis is a 4-value enum. The values `addressed`, `ignored`, and `false_positive` apply to merged PRs. The fourth value `empty` is selected on PRs that are not merged, as an active selection rather than the absence of a label.
+The `Addressed` axis is a 4-value enum. The values `addressed`, `ignored`, and `false_positive` apply to closed PRs (merged or closed without merge). The fourth value `empty` is selected ONLY on OPEN PRs, as an active selection rather than the absence of a label. Per platform rule, a PR closed without merging is evaluated the same way as a merged PR.
 
 ---
 
@@ -50,7 +50,7 @@ Every review comment is labeled across five independent axes. Each axis is evalu
 | # | Axis | Question |
 |---|---|---|
 | 1 | **Quality** | Is the comment helpful, unhelpful, or wrong? |
-| 2 | **Addressed** | Was the comment addressed, ignored, a false positive, or empty on a non-merged PR? 4-value enum, always present |
+| 2 | **Addressed** | Was the comment addressed, ignored, a false positive, or empty? 4-value enum. `empty` only when the PR is OPEN. Closed PRs (merged or not) are evaluated as final |
 | 3 | **Severity** | Is the issue nit, moderate, or critical? |
 | 4 | **Context Scope** | What level of context was needed. `diff`, `file`, `repo`, or `external` |
 | 5 | **Advanced** | Which kind of beyond-diff knowledge did the comment rely on. Five-value enum. `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach` |
@@ -150,7 +150,7 @@ With the diff, comment, and any needed context in hand, assign labels for each a
 | Axis | Values |
 |---|---|
 | Quality | `helpful` / `unhelpful` / `wrong` |
-| Addressed | `empty` / `addressed` / `ignored` / `false_positive`. `empty` on non-merged PRs |
+| Addressed | `empty` / `addressed` / `ignored` / `false_positive`. `empty` ONLY on OPEN PRs. Closed PRs (merged or not) get one of the other three |
 | Severity | `nit` / `moderate` / `critical` |
 | Context Scope | `diff` / `file` / `repo` / `external` |
 | Advanced | `False` / `Repo-specific conventions` / `Context outside changed files` / `Recent language / library updates` / `Better implementation approach` |
@@ -241,23 +241,25 @@ When a comment makes multiple claims, evaluate each part individually. The most 
 
 ## 5. Axis 2: Addressed
 
-Determine whether the review comment was addressed. **The platform exposes a 4-value enum on every task.** The fourth value `empty` is selected on PRs that are not merged, since the merge state needed to evaluate the other three values does not exist yet.
+Determine whether the review comment was addressed. **The platform exposes a 4-value enum on every task.** The fourth value `empty` is selected ONLY on OPEN PRs. Once a PR is closed (with merge or without), it is in a final state and is evaluated against the decision tree.
+
+**Platform rule.** "If the PR is closed, it is evaluated as a merge." A PR closed without merging is just as final as a merged PR. The same decision tree applies to both.
 
 Choose exactly one of four values:
 
 | Value | Definition |
 |---|---|
-| **empty** | The PR is not merged. Selected when `state == OPEN` or the PR is closed without merging. This is an active selection on the platform, not the absence of a label |
-| **addressed** | The merged code was changed in a way that addresses the underlying concern raised in the comment. The fix does not have to match the reviewer's exact suggestion. Any change that resolves the issue counts. Also counts when the PR author or a reviewer stated they will fix it later or in another PR |
-| **ignored** | The merged code shows no changes related to the comment's concern, and no one dismissed the comment as invalid. The comment was simply not acted upon |
+| **empty** | The PR is OPEN. The final state needed to choose between the other three values does not exist yet. This is an active selection on the platform, not the absence of a label |
+| **addressed** | The code in the final state of the PR was changed in a way that addresses the underlying concern. For merged PRs this is the merged code. For closed-without-merge PRs this is the last commit on the PR branch. The fix does not have to match the reviewer's exact suggestion. Any change that resolves the issue counts. Also counts when the PR author or a reviewer stated they will fix it later or in another PR |
+| **ignored** | The final code shows no changes related to the comment's concern, and no one dismissed the comment as invalid. The comment was simply not acted upon |
 | **false_positive** | The PR author or another participant explicitly pushed back on the comment's validity. They explained why the comment does not apply, is based on a misunderstanding, or points to a non-issue |
 
 ### Decision Guide
 
 ```
-Is the PR open or closed without merging?
+Is the PR OPEN?
   → Yes → EMPTY
-  → No, PR is merged ↓
+  → No, PR is merged or closed without merge ↓
 
 Did someone reply saying the comment was incorrect, invalid, or unnecessary?
   → Yes → FALSE_POSITIVE
@@ -479,7 +481,7 @@ Think of the justification fields as independent paragraphs written by independe
 | Justification field | Only explain | Never mention |
 |---|---|---|
 | `quality_justification` | Why the comment is correct, incorrect, or useless | Addressed, severity, scope, advanced |
-| `addressed_justification` | Whether and how the comment was addressed in the merged code, or for `empty` why the PR's merge state does not allow evaluation | Quality, severity, scope, advanced |
+| `addressed_justification` | Whether and how the comment was addressed in the final state of the PR, applies to merged or closed-without-merge. For `empty` state the justification cites that the PR is still open | Quality, severity, scope, advanced |
 | `severity_justification` | What specific impact or risk the issue poses | Quality, addressed, scope, advanced |
 | `context.why` entries | What each piece of evidence showed the reviewer | Quality, addressed, severity, advanced |
 | `advanced_justification` | Whether special beyond-diff knowledge was needed, and what it was | Quality, addressed, severity, scope |
@@ -718,7 +720,7 @@ Names the elements. The paired context entry holds the exact line.
 
 ### Addressed
 - 4-value enum, always present. `empty`, `addressed`, `ignored`, `false_positive`.
-- `empty` is the active selection for non-merged PRs. Not the absence of a label.
+- `empty` is the active selection only for OPEN PRs. Not the absence of a label. Closed PRs without merge are NOT empty, they evaluate like merged.
 - `addressed` is generous. Any merged change that resolves the underlying concern counts, even if the exact suggestion was not followed.
 - `false_positive` requires an explicit rebuttal from the PR author or another participant. Silence is not rebuttal.
 - `ignored` is the default when the code did not change and no one dismissed the comment.

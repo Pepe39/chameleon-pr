@@ -1,7 +1,7 @@
 # step-045-label-addressed
 
 ## What it does
-Labels Axis 2 Addressed. Always runs. Selects one of four enum values: `empty`, `addressed`, `ignored`, `false_positive`. The platform requires this axis on every task, including open PRs. On open or closed-not-merged PRs the value is `empty` because the merge state needed to evaluate addressed/ignored/false_positive does not exist yet.
+Labels Axis 2 Addressed. Always runs. Selects one of four enum values: `empty`, `addressed`, `ignored`, `false_positive`. The platform requires this axis on every task. The value is `empty` ONLY when the PR is still OPEN. Both MERGED and CLOSED-without-merge PRs are in a final state and must be evaluated against the decision tree.
 
 ## Prerequisites
 - Step 04 completed (Quality labeled)
@@ -27,20 +27,22 @@ If `work/thread.md` exists, read it as well. The body of this task is a nested r
 
 Update `progress.md`. step 045 status = `in-progress`, Started = {timestamp ISO 8601}.
 
-### 2. Merged-status branch
+### 2. PR-state branch
 
-**If `PR Merged Status` is `open` or `closed_not_merged`**, the value is `empty`:
+The platform rule. A PR is "evaluable" once it is in a final state, which means MERGED or CLOSED without merge. Only OPEN PRs get `empty`.
+
+**If `PR Merged Status` is `open`**, the value is `empty`:
 
 1. Add to `task_info.md` Labels section:
    ```markdown
    ### Addressed
    - **Label:** empty
-   - **Reasoning:** The PR is {merged_status_value}, so the merge state needed to evaluate `addressed`, `ignored`, or `false_positive` does not exist. Per platform convention the field is set to `empty` for non-merged PRs.
+   - **Reasoning:** The PR is open, so the final state needed to evaluate `addressed`, `ignored`, or `false_positive` does not exist yet. Per platform convention the field is set to `empty` only for open PRs.
    ```
 2. Update `progress.md`. step 045 status = `done`, Completed = {timestamp ISO 8601}, Current Step = `05 - Label Severity`.
 3. Return. Step-08 will write `addressed.md` with label `empty` and the field will be present in `labels.json`.
 
-**If `PR Merged Status` is `merged`**, continue to step 3 to pick from `addressed`, `ignored`, or `false_positive`.
+**If `PR Merged Status` is `merged` or `closed_not_merged`**, continue to step 3 to pick from `addressed`, `ignored`, or `false_positive`. The decision tree applies the same way to both states because both are final. The "merged state" referenced in the tree is the final state of the PR, which for `closed_not_merged` is the last commit on the PR branch before closure.
 
 ### 3. Gather merged-state evidence
 

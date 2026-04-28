@@ -116,7 +116,7 @@ Paste your task variables below. Fill in each field from the annotation platform
 | 08 | Generate Output | pending | | |
 ```
 
-Note. Step 045 may resolve to `skipped` when the PR is not merged. The downstream steps still run normally.
+Note. Step 045 always resolves to `done` and writes one of the four enum values, including `empty` when the PR is OPEN. The downstream steps run normally.
 
 5. Generate `tasks/{date}/{id}/task_info.md`:
 
@@ -160,7 +160,7 @@ Steps completed: {N}/9
 Next step: {N} - {name} ({status})
 ```
 
-When computing `N`, count steps with status `done` or `skipped`. Step 045 resolves to `skipped` on non-merged PRs, and that still counts as a completed step in the progress total.
+When computing `N`, count steps with status `done` or `skipped`. Step 045 always resolves to `done` since it always writes one of the four enum values, including `empty` for OPEN PRs.
 
 If status is "in-progress": "NOTE: This step was interrupted. It will be resumed."
 
@@ -207,7 +207,7 @@ Read `.claude/skills/{step-command}.md` and follow ALL instructions from that fi
 2. Update progress.md (each step already does this when finishing).
 3. Show: "Step {N} completed. Next: {N+1} - {name}".
 4. **Interactive mode:** Ask "Continue with the next step? (yes/no)". If yes -> back to step 4. If no -> section 7 (Cleanup), then show "To resume: `/run {id}`".
-5. **Auto mode:** Do NOT ask. Loop straight back to step 4 with the next pending step until all 9 steps are `done` or `skipped` (step 045 may legitimately be `skipped` on non-merged PRs), then proceed to section 7 (Cleanup) and stop.
+5. **Auto mode:** Do NOT ask. Loop straight back to step 4 with the next pending step until all 9 steps are `done`, then proceed to section 7 (Cleanup) and stop.
 
 ### 7. Cleanup
 

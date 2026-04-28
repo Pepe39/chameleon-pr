@@ -6,7 +6,7 @@ Reference for the expected structure of each deliverable file generated in `task
 
 ## labels.json
 
-The structured output for submission. Contains all five axis labels and the context evidence array. The `addressed` field is always present and uses one of four enum values, including `empty` for non-merged PRs.
+The structured output for submission. Contains all five axis labels and the context evidence array. The `addressed` field is always present and uses one of four enum values. `empty` is selected ONLY on OPEN PRs. Closed PRs, including closed-without-merge, get one of `addressed`, `ignored`, or `false_positive`.
 
 ```json
 {
@@ -28,12 +28,12 @@ The structured output for submission. Contains all five axis labels and the cont
 **Rules:**
 - 2-space indentation
 - `advanced` is a string enum, not a boolean. One of the five values `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`
-- `addressed` is a string enum with four values. `empty`, `addressed`, `ignored`, `false_positive`. The value `empty` is an active selection used when the PR is not merged. The field is always present in `labels.json`
+- `addressed` is a string enum with four values. `empty`, `addressed`, `ignored`, `false_positive`. The value `empty` is an active selection used ONLY when the PR is OPEN. Closed PRs (merged or closed-without-merge) get one of the other three. The field is always present in `labels.json`
 - `diff_line` is a string like `"42"` or `"83-120"`, or `null`. Never a number
 - `context` must have at least 1 entry when context_scope is `diff`, `file`, or `repo`
 - `context` may be `[]` when context_scope is `external`
 - Hard rule. If `context_scope` is `repo` or `external`, then `advanced` must not be `False`. That combination is invalid by definition because crossing the diff boundary is itself beyond-diff knowledge
-- Hard rule. If `addressed` is `empty`, the PR must not be merged. If `addressed` is one of `addressed`, `ignored`, `false_positive`, the PR must be merged. Mismatch is invalid
+- Hard rule. If `addressed` is `empty`, the PR must be OPEN. If `addressed` is one of `addressed`, `ignored`, `false_positive`, the PR must be closed (merged or closed-without-merge). Mismatch is invalid
 
 ---
 
@@ -76,7 +76,7 @@ Justification for the Addressed axis. Always generated. Uses one of four enum va
 
 ## Reasoning
 {Self-contained justification. 2-3 sentences explaining:
-- For `empty`, state the PR merged status and explain that the merge state needed to evaluate the merged-PR values does not exist yet
+- For `empty`, state that the PR is OPEN and the final state needed to evaluate the other values does not exist yet
 - For `addressed`, name the specific commit, reply, or code change that shows the outcome
 - For `ignored`, confirm no reply and no relevant code change in the merged state
 - For `false_positive`, cite the reviewer or author reply that dismissed the comment}

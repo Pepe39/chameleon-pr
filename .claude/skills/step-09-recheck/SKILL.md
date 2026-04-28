@@ -122,7 +122,7 @@ offending snippet (20 chars before and after) in the report.
 | X3 | If `context_scope == diff`, no entry in `labels.json.context` may have a `file_path` that is NOT in the PR's Changed Files List from `task_info.md`. |
 | X4 | If `context_scope == file` or `repo`, at least one entry must reference a file or line NOT present in the PR diff hunks (otherwise scope should be `diff`). |
 | X5 | Advanced is a string enum, never a JSON boolean. `labels.json.advanced` must be one of the five string values, never `true` or `false` as a JSON literal. |
-| X6 | Addressed is always present and uses one of four values. `labels.json.addressed` must be one of `empty`, `addressed`, `ignored`, `false_positive`. The value must match the PR merged status recorded in `task_info.md`. If `PR Merged Status == merged`, the value must be one of `addressed`, `ignored`, `false_positive`. If `PR Merged Status` is `open` or `closed_not_merged`, the value must be exactly `empty`. Missing key, wrong value, or mismatched merged status is a `fail`. |
+| X6 | Addressed is always present and uses one of four values. `labels.json.addressed` must be one of `empty`, `addressed`, `ignored`, `false_positive`. The value must match the PR state recorded in `task_info.md`. If `PR Merged Status` is `open`, the value must be exactly `empty`. If `PR Merged Status` is `merged` or `closed_not_merged`, the value must be one of `addressed`, `ignored`, `false_positive`. The platform treats closed PRs (with or without merge) as final states that are evaluated the same way. Missing key, wrong value, or mismatched PR state is a `fail`. |
 
 ### T - Thread and to_report (nested replies only)
 
@@ -136,7 +136,7 @@ These checks only run when `work/thread.md` exists inside the task dir. When the
 | T4 | When `work/thread.md` exists, `to_report.md` must exist at the root of the task directory. Missing file is a `fail`. When `work/thread.md` is absent, `to_report.md` must also be absent. A stray `to_report.md` on a top-level task is a `fail`. |
 | T5 | When `to_report.md` exists, it must contain exactly one data row with six cells. The row must start with the task id. The Status cell must be `done`. The Other task cell must be empty. Any other shape is a `fail`. |
 | T6 | When `to_report.md` exists, the row contents must pass the same wording checks as W1-W8. Forbidden characters anywhere in the cells are `fail`, not `warn`. Auto-fix rules apply the same way as for reasoning fields. |
-| T7 | When `to_report.md` exists, the Axis and Justification cell must contain the five axis names in platform order. `Quality`, `Addressed`, `Severity`, `Context`, `Advanced`. Each name must be followed by a label value and at least one sentence of justification. Addressed is always present, with value `empty` on non-merged PRs. Missing axes, wrong order, or absence of Addressed is a `fail`. |
+| T7 | When `to_report.md` exists, the Axis and Justification cell must contain the five axis names in platform order. `Quality`, `Addressed`, `Severity`, `Context`, `Advanced`. Each name must be followed by a label value and at least one sentence of justification. Addressed is always present, with value `empty` only on OPEN PRs and one of `addressed`/`ignored`/`false_positive` on closed PRs (merged or closed without merge). Missing axes, wrong order, or absence of Addressed is a `fail`. |
 
 ## Reporting
 

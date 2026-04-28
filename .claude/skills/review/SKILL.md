@@ -796,7 +796,7 @@ Check if `work/thread.md` exists in the task directory.
 
 Use the same template, field rules, and wording audit as `step-08-generate-output` section 7. In particular:
 
-- Build the Axis and Justification cell from the effective deliverables. Order is always Quality, Addressed, Severity, Context, Advanced (Addressed is always present, with value `empty` on non-merged PRs). Concatenate with periods between sentences.
+- Build the Axis and Justification cell from the effective deliverables. Order is always Quality, Addressed, Severity, Context, Advanced. Addressed is always present, with value `empty` only on OPEN PRs and one of `addressed`/`ignored`/`false_positive` on closed PRs (merged or closed without merge). Concatenate with periods between sentences.
 - The Summary cell describes what the body of the task is saying inside its thread.
 - The Workaround cell describes internal labeling adjustments that were needed (including any made during the review), empty if none.
 - The Status cell is `done`.

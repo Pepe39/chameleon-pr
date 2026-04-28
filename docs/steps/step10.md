@@ -2,7 +2,7 @@
 
 ## What to Do
 
-1. Compile your labels into the JSON output format. The `addressed` field is always present and uses the 4-value enum, with `empty` selected on non-merged PRs.
+1. Compile your labels into the JSON output format. The `addressed` field is always present and uses the 4-value enum. `empty` is selected ONLY when the PR is OPEN. Closed PRs (merged or closed without merge) get one of `addressed`, `ignored`, `false_positive`.
 
 ```json
 {
@@ -25,7 +25,7 @@
 
 - [ ] Verified that the comment in the discussion matches the `body` field
 - [ ] Quality is based on factual correctness and usefulness, not personal opinion
-- [ ] Addressed is one of the 4 enum values. `empty` on non-merged PRs, otherwise one of `addressed`, `ignored`, `false_positive`
+- [ ] Addressed is one of the 4 enum values. `empty` ONLY on OPEN PRs. Closed PRs (merged or not) get one of `addressed`, `ignored`, `false_positive`
 - [ ] Severity rates the issue itself, not the tone of the comment
 - [ ] Context scope reflects the broadest level of context needed
 - [ ] The context array lists all pieces of evidence used

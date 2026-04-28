@@ -1,8 +1,10 @@
 # Axis 2: Addressed
 
-Determine whether the review comment was addressed. The platform exposes a 4-value enum on every task. The fourth value `empty` is selected on PRs that are not merged, since the merge state needed to evaluate `addressed`, `ignored`, or `false_positive` does not exist yet.
+Determine whether the review comment was addressed. The platform exposes a 4-value enum on every task. The fourth value `empty` is selected ONLY when the PR is OPEN. Once a PR is closed (with merge or without), it is in a final state and must be evaluated against the decision tree below.
 
 `step-045-label-addressed` always runs and writes one of the four values. Step-08 always emits `addressed.md` and the field is always present in `labels.json`.
+
+**Platform rule.** "If the PR is closed, it is evaluated as a merge." A PR closed without merging is just as final as a merged PR. The reviewer applies the same decision tree against the last commit on the PR branch and the discussion thread up to the close.
 
 ---
 
@@ -10,7 +12,7 @@ Determine whether the review comment was addressed. The platform exposes a 4-val
 
 | Value | Definition |
 |---|---|
-| **empty** | The PR is not merged. The merge state needed to choose between `addressed`, `ignored`, or `false_positive` does not exist yet. This is an active selection on the platform, not the absence of a label. Used when `state == OPEN` or the PR is closed without merging. |
+| **empty** | The PR is OPEN. The final state needed to choose between the other three values does not exist yet because the PR can still receive new commits or replies. This is an active selection on the platform, not the absence of a label. |
 | **addressed** | The codebase was changed in a way that addresses the underlying problem or concern raised in the comment. If the comment was not valid and will be addressed later or in another PR, it is also considered as addressed. |
 | **ignored** | The comment was neither addressed nor indicated to be incorrect, invalid, or unnecessary. The content was not changed in any way that was influenced by the comment, and no one indicated an intention to address the comment now or in the future. |
 | **false_positive** | The developer or another participant commented or otherwise indicated that the comment was incorrect, invalid, or unnecessary. |
@@ -22,9 +24,9 @@ Determine whether the review comment was addressed. The platform exposes a 4-val
 Use this decision tree:
 
 ```
-Is the PR open or closed without merging?
+Is the PR OPEN?
   → Yes → EMPTY
-  → No, PR is merged ↓
+  → No, PR is merged or closed without merge ↓
 
 Did someone reply saying the comment was incorrect, invalid, or unnecessary?
   → Yes → FALSE_POSITIVE
@@ -37,6 +39,8 @@ Was the code changed in a way that addresses the concern raised in the comment?
 The comment was not acted upon and no one dismissed it.
   → IGNORED
 ```
+
+For a PR closed without merging, the "code change" check looks at the last commit on the PR branch before closure. Author may have pushed fixes that addressed the comment even if they later abandoned the PR. The same with replies. If the author closed the PR with no engagement on the comment, the right answer is `ignored`.
 
 ### Key Rules
 

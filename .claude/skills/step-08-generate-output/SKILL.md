@@ -1,7 +1,7 @@
 # step-08-generate-output
 
 ## What it does
-Compiles all five labeled axes into the final JSON output, validates consistency, and generates the deliverable files ready for submission. `Addressed` is always present using a 4-value enum, with `empty` selected on non-merged PRs.
+Compiles all five labeled axes into the final JSON output, validates consistency, and generates the deliverable files ready for submission. `Addressed` is always present using a 4-value enum. `empty` is selected ONLY on OPEN PRs. Closed PRs (merged or closed without merge) get one of `addressed`, `ignored`, `false_positive`.
 
 ## Prerequisites
 - Steps 04, 045, 05, 06, 07 completed (all labeled axes have a status of `done` in `progress.md`)
@@ -26,7 +26,7 @@ Update `progress.md`. step 08 status = `in-progress`, Started = {timestamp ISO 8
 
 Collect from `task_info.md`:
 - **Quality:** {helpful | unhelpful | wrong}
-- **Addressed:** {empty | addressed | ignored | false_positive}. The value `empty` is an active selection used when the PR is not merged
+- **Addressed:** {empty | addressed | ignored | false_positive}. The value `empty` is an active selection used ONLY when the PR is OPEN. Closed PRs (merged or closed without merge) get one of the other three
 - **Severity:** {nit | moderate | critical}
 - **Context Scope:** {diff | file | repo | external}
 - **Context Array:** [{entries}]
@@ -46,9 +46,9 @@ Run these checks before generating output. If any check fails, report to the use
 - [ ] If context_scope is `diff`, `file`, or `repo`, the context array has at least 1 entry
 - [ ] If context_scope is `external`, the context array may be empty
 
-**Merged-status consistency (GATE, blocking):**
-- If `PR Merged Status` is `merged`, then `Addressed` must be one of `addressed`, `ignored`, `false_positive`. The value `empty` is invalid on a merged PR.
-- If `PR Merged Status` is `open` or `closed_not_merged`, then `Addressed` must be exactly `empty`. The merged-only values are invalid on a non-merged PR.
+**PR-state consistency (GATE, blocking):**
+- If `PR Merged Status` is `open`, then `Addressed` must be exactly `empty`. The other three values are invalid on an open PR because the final state is not yet known.
+- If `PR Merged Status` is `merged` or `closed_not_merged`, then `Addressed` must be one of `addressed`, `ignored`, `false_positive`. The value `empty` is invalid on any closed PR. A `closed_not_merged` PR is in a final state and the platform expects the same evaluation as a merged PR.
 
 **Scope vs Advanced consistency (GATE, blocking):**
 - If `Context Scope` is `repo` or `external`, then `Advanced` MUST NOT be `False`. Crossing the diff boundary is itself beyond-diff knowledge. That combination is invalid by definition. Report the failure in the form `INVALID. context_scope={value}, advanced=False is internally inconsistent. Re-run step-06 or step-07 before proceeding.` and STOP.
@@ -58,7 +58,7 @@ Run these checks before generating output. If any check fails, report to the use
 
 ### 4. Generate labels.json
 
-Write `tasks/{date}/{id}/deliverables/labels.json`. The `addressed` field is always present and uses one of the four enum values. On non-merged PRs the value is the string `empty`.
+Write `tasks/{date}/{id}/deliverables/labels.json`. The `addressed` field is always present and uses one of the four enum values. The string `empty` is used ONLY on OPEN PRs. Closed PRs (merged or closed without merge) get one of the other three.
 
 ```json
 {
@@ -79,7 +79,7 @@ Write `tasks/{date}/{id}/deliverables/labels.json`. The `addressed` field is alw
 
 **Formatting rules:**
 - Use 2-space indentation
-- `addressed` is always present. One of `empty`, `addressed`, `ignored`, `false_positive`. Never emit `null`, `""`, or any other placeholder. The string `empty` is the active selection used on non-merged PRs
+- `addressed` is always present. One of `empty`, `addressed`, `ignored`, `false_positive`. Never emit `null`, `""`, or any other placeholder. The string `empty` is the active selection used ONLY on OPEN PRs. Closed PRs get one of the other three
 - `advanced` is a string enum. One of `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language / library updates`, `Better implementation approach`. Never a JSON boolean
 - `diff_line` is a string like `"42"` or JSON `null` when empty. Never `""`, `"null"`, or a bare number
 - All string values must be properly escaped
@@ -232,7 +232,7 @@ Field rules:
 
   `Quality {label}. {justification}. Addressed {label}. {justification}. Severity {label}. {justification}. Context {label}. {justification}. Advanced {label}. {justification}.`
 
-  The Addressed block is always present. When the PR is not merged, the value is `empty` and the justification states the merge status. Use the labels and reasoning already recorded in `task_info.md` and the per-axis `.md` deliverables. Concatenate with periods between sentences. Do NOT use semicolons, dashes, colons outside file paths, or parentheses to separate the parts. Keep each justification short, one or two sentences per axis. If the reasoning in a deliverable contains forbidden characters, rewrite them into clean prose here before placing them in the cell.
+  The Addressed block is always present. When the PR is OPEN, the value is `empty` and the justification states that the PR is still open. When the PR is closed, the value is one of `addressed`, `ignored`, `false_positive`. Use the labels and reasoning already recorded in `task_info.md` and the per-axis `.md` deliverables. Concatenate with periods between sentences. Do NOT use semicolons, dashes, colons outside file paths, or parentheses to separate the parts. Keep each justification short, one or two sentences per axis. If the reasoning in a deliverable contains forbidden characters, rewrite them into clean prose here before placing them in the cell.
 - **Status:** always `done` at this point. The row is only written after the five axes have been labeled and validated.
 - **Other task with the same issue / case:** always empty. This column is filled manually by the user. The pipeline never writes into it.
 

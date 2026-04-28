@@ -122,20 +122,20 @@ Use this decision tree:
 
 ### Step 7: Label Axis 2. Addressed
 
-> Always runs. The platform exposes a 4-value enum on every task. The fourth value `empty` is the active selection for PRs that are not merged.
+> Always runs. The platform exposes a 4-value enum on every task. The fourth value `empty` is the active selection ONLY for OPEN PRs. Closed PRs, whether merged or closed without merge, are evaluated against the decision tree.
 
 Decide. What is the state of the comment on the PR?
 
 | Label | When to pick it | Examples |
 |---|---|---|
-| **empty** | The PR is open or closed without merging. The merge state needed to choose between the other three values does not exist | PR `state == OPEN`, or closed without merging |
+| **empty** | The PR is OPEN. The final state needed to choose between the other three values does not exist yet | PR `state == OPEN` only. A PR closed without merging is NOT empty, it evaluates like merged |
 | **addressed** | Merged PR. The merged code changed in a way that resolves the underlying concern | Reviewer's exact suggestion was applied, a different fix that solves the same problem, or an author reply promising to fix later or in another PR |
 | **ignored** | Merged PR. The merged code is unchanged on this concern and no discussion dismissed the comment | The comment was posted and nobody touched the code or replied to it |
 | **false_positive** | Merged PR. The PR author or another reviewer explicitly rebutted the comment | Reply explains the comment is based on a misunderstanding, points at code that already handles the case, or calls the concern non-applicable |
 
 **Key reminders:**
 - `empty` is not the same as not selecting. It is an active selection.
-- Silence on a merged PR is not a false positive. Without an explicit rebuttal, the default is `ignored`.
+- Silence on a closed PR (merged or not) is not a false positive. Without an explicit rebuttal, the default is `ignored`.
 - The fix does not have to match the reviewer's suggestion. Any change that resolves the underlying concern counts as `addressed`.
 - Compare against the **merged** state, not HEAD of the branch at the time of the comment. Follow the thread all the way to what landed.
 
@@ -248,7 +248,7 @@ Compile your labels into the output format. The `addressed` field is only presen
 **Final checklist before submitting:**
 - [ ] Verified the comment matches the `body` field
 - [ ] Quality is based on factual correctness and usefulness
-- [ ] Addressed is one of the four enum values. `empty` on non-merged PRs, otherwise one of `addressed`, `ignored`, `false_positive`
+- [ ] Addressed is one of the four enum values. `empty` ONLY on OPEN PRs, otherwise one of `addressed`, `ignored`, `false_positive` (this includes closed-without-merge)
 - [ ] Severity rates the issue, not the comment's tone
 - [ ] Context scope reflects the broadest level needed
 - [ ] Context array lists all evidence the reviewer used
@@ -263,7 +263,7 @@ Compile your labels into the output format. The `addressed` field is only presen
 | Axis | Values | Key Rule |
 |---|---|---|
 | **Quality** | helpful / unhelpful / wrong | Wrong means factually false, not "I disagree" |
-| **Addressed** | empty / addressed / ignored / false_positive | `empty` is the active selection for non-merged PRs. On merged PRs, silence is not a false positive, default is `ignored` |
+| **Addressed** | empty / addressed / ignored / false_positive | `empty` ONLY on OPEN PRs. Closed PRs (merged or closed-no-merge) get one of the other three. Silence on a closed PR is not a false positive, default is `ignored` |
 | **Severity** | nit / moderate / critical | Rate the issue, not the comment |
 | **Context Scope** | diff / file / repo / external | Pick the broadest level needed |
 | **Advanced** | False / Repo-specific conventions / Context outside changed files / Recent language / library updates / Better implementation approach | Derived from scope. `diff` or `file` maps to `False`. `repo` or `external` maps to one of the four non-False values |

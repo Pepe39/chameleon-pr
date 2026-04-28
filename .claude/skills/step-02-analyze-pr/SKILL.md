@@ -204,7 +204,7 @@ Extract and record:
   - `open`. `state == "OPEN"`
   - `closed_not_merged`. `state == "CLOSED"` and `mergedAt` is null
 
-Record the merged status in `task_info.md` under the Input Data section as `- **PR Merged Status:** {merged | open | closed_not_merged}`. This value gates the Addressed axis. `step-045-label-addressed` only labels when the value is `merged`.
+Record the merged status in `task_info.md` under the Input Data section as `- **PR Merged Status:** {merged | open | closed_not_merged}`. This value gates the Addressed axis. `step-045-label-addressed` writes `empty` ONLY when the value is `open`. Both `merged` and `closed_not_merged` go through the full decision tree because the platform treats any closed PR as a final state.
 
 ### 3. Fetch the diff
 
