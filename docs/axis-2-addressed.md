@@ -6,6 +6,20 @@ Determine whether the review comment was addressed. The platform exposes a 4-val
 
 **Platform rule.** "If the PR is closed, it is evaluated as a merge." A PR closed without merging is just as final as a merged PR. The reviewer applies the same decision tree against the last commit on the PR branch and the discussion thread up to the close.
 
+### Authoritative source for the closed-no-merge rule
+
+The rule above comes directly from the project's Slack channel:
+
+> "In those cases, we're evaluating it as a merge. So, once the pull request is closed, the same process will be followed as if it were a merge."
+
+This was clarified after a real dispute on a task where a reviewer changed `addressed` to `empty` arguing the PR was closed without merge. The original annotator had written:
+
+> "Addressed. A later commit on the same branch added `financial_impact/inference.py` with the `wg_inf` API the notebook imports, resolving the missing-module concern."
+
+The annotator was correct. A later commit pushed before the close that resolves the underlying concern is a valid `addressed`, even if the PR ultimately did not merge. The reviewer's correction was wrong because it assumed the GitHub state machine for "closed without merge" implies "no final state", when in fact the platform treats any closed PR as final.
+
+If you ever face a reviewer correction that flips your `addressed` on a closed-no-merge PR to `empty`, cite the Slack quote above and link this section.
+
 ---
 
 ## Possible Values
