@@ -30,7 +30,7 @@ Collect from `task_info.md`:
 - **Severity:** {nit | moderate | critical}
 - **Context Scope:** {diff | file | repo | external}
 - **Context Array:** [{entries}]
-- **Advanced:** {FALSE | Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach}
+- **Advanced:** {False | Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach}
 
 ### 3. Validate consistency (GATE)
 
@@ -41,7 +41,7 @@ Run these checks before generating output. If any check fails, report to the use
 - [ ] Addressed is one of: `empty`, `addressed`, `ignored`, `false_positive`
 - [ ] Severity is one of: `nit`, `moderate`, `critical`
 - [ ] Context Scope is one of: `diff`, `file`, `repo`, `external`
-- [ ] Advanced is one of: `FALSE`, `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`
+- [ ] Advanced is one of: `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`
 - [ ] Context array is valid JSON (array of objects with diff_line, file_path, why)
 - [ ] If context_scope is `diff`, `file`, or `repo`, the context array has at least 1 entry
 - [ ] If context_scope is `external`, the context array may be empty
@@ -51,7 +51,7 @@ Run these checks before generating output. If any check fails, report to the use
 - If `PR Merged Status` is `merged` or `closed_not_merged`, then `Addressed` must be one of `addressed`, `ignored`, `false_positive`. The value `empty` is invalid on any closed PR. A `closed_not_merged` PR is in a final state and the platform expects the same evaluation as a merged PR.
 
 **Scope vs Advanced consistency (GATE, blocking):**
-- If `Context Scope` is `repo` or `external`, then `Advanced` MUST NOT be `FALSE`. Crossing the diff boundary is itself beyond-diff knowledge. That combination is invalid by definition. Report the failure in the form `INVALID. context_scope={value}, advanced=FALSE is internally inconsistent. Re-run step-06 or step-07 before proceeding.` and STOP.
+- If `Context Scope` is `repo` or `external`, then `Advanced` MUST NOT be `False`. Crossing the diff boundary is itself beyond-diff knowledge. That combination is invalid by definition. Report the failure in the form `INVALID. context_scope={value}, advanced=False is internally inconsistent. Re-run step-06 or step-07 before proceeding.` and STOP.
 
 **Independence checks (warnings, not blockers):**
 - If Quality = `wrong` AND Severity = `nit`, flag for review: "Verify. the issue the comment tried to flag is truly nit-level, even though the comment is wrong."
@@ -80,7 +80,7 @@ Write `tasks/{date}/{id}/deliverables/labels.json`. The `addressed` field is alw
 **Formatting rules:**
 - Use 2-space indentation
 - `addressed` is always present. One of `empty`, `addressed`, `ignored`, `false_positive`. Never emit `null`, `""`, or any other placeholder. The string `empty` is the active selection used ONLY on OPEN PRs. Closed PRs get one of the other three
-- `advanced` is a string enum. One of `FALSE`, `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`. Never a JSON boolean
+- `advanced` is a string enum. One of `False`, `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`. Never a JSON boolean
 - `diff_line` is a string like `"42"` or JSON `null` when empty. Never `""`, `"null"`, or a bare number
 - All string values must be properly escaped
 - Axis key order in the JSON follows the platform. `quality`, `addressed`, `severity`, `context_scope`, `context`, `advanced`
@@ -201,7 +201,7 @@ Always generate this file. Step 045 always produces one of the four enum values.
 - **PR:** {pull_request_url}
 
 ## Label
-**{Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach | FALSE}**
+**{Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach | False}**
 
 ## Reasoning
 {reasoning from step 07}

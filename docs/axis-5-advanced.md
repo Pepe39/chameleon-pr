@@ -4,7 +4,7 @@ Determine whether the comment goes beyond what is obvious from reading the chang
 
 **Advanced is a 5-value enum, not a boolean.** Earlier guidance treated it as `true/false`. That is no longer correct. You must pick exactly one of these five string values:
 
-- `FALSE`
+- `False`
 - `Repo-specific conventions`
 - `Context outside changed files`
 - `Recent language/library updates`
@@ -20,14 +20,14 @@ Once Context Scope is determined in step 06, Advanced follows this deterministic
 
 | Context Scope | Advanced |
 |---|---|
-| **diff** | `FALSE` |
-| **file** | `FALSE` |
+| **diff** | `False` |
+| **file** | `False` |
 | **repo** | one of the four beyond-diff values |
 | **external** | one of the four beyond-diff values |
 
-You do not need to evaluate Context Scope and Advanced separately. Once you determine the Context Scope, whether Advanced is `FALSE` or one of the four beyond-diff values is automatically determined by this rule.
+You do not need to evaluate Context Scope and Advanced separately. Once you determine the Context Scope, whether Advanced is `False` or one of the four beyond-diff values is automatically determined by this rule.
 
-**Hard rule.** `context_scope = "repo"` with `advanced = "FALSE"` is internally inconsistent. Crossing the diff boundary is itself beyond-diff knowledge. Same for `external` with `FALSE`. If you reach that combination, one of the two labels is wrong.
+**Hard rule.** `context_scope = "repo"` with `advanced = "False"` is internally inconsistent. Crossing the diff boundary is itself beyond-diff knowledge. Same for `external` with `False`. If you reach that combination, one of the two labels is wrong.
 
 ---
 
@@ -40,8 +40,8 @@ The files touched by the PR include:
 - The unchanged lines of those same files
 
 Therefore:
-- **Diff** and **File** are within the PR's files. No beyond-diff knowledge needed. Advanced is `FALSE`.
-- **Repo** and **External** are outside the PR's files. Beyond-diff knowledge was needed. Advanced is one of the four non-FALSE values.
+- **Diff** and **File** are within the PR's files. No beyond-diff knowledge needed. Advanced is `False`.
+- **Repo** and **External** are outside the PR's files. Beyond-diff knowledge was needed. Advanced is one of the four non-False values.
 
 ---
 
@@ -78,4 +78,4 @@ If more than one value applies, pick the primary driver. When in doubt between `
 
 | Field | Value | Reasoning |
 |---|---|---|
-| advanced | **FALSE** | Context Scope is `diff`. The mapping rule gives `FALSE`. |
+| advanced | **False** | Context Scope is `diff`. The mapping rule gives `False`. |

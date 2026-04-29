@@ -17,7 +17,7 @@
       "why": "Short description of why this context matters"
     }
   ],
-  "advanced": "FALSE | Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach"
+  "advanced": "False | Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach"
 }
 ```
 
@@ -30,11 +30,11 @@
 - [ ] Context scope reflects the broadest level of context needed
 - [ ] The context array lists all pieces of evidence used
 - [ ] Advanced is the string enum value, not `true/false`
-- [ ] `repo` or `external` scope is never paired with `advanced = "FALSE"`
+- [ ] `repo` or `external` scope is never paired with `advanced = "False"`
 - [ ] All five axes were evaluated independently
 
 3. Submit your labels in the annotation platform.
 
 ## Goal of This Step
 
-Produce a complete, consistent, and verified record of your labels. The final checklist prevents the most common errors such as coupling Quality with Severity, inflating the scope, or pairing `repo` scope with `advanced = "FALSE"`.
+Produce a complete, consistent, and verified record of your labels. The final checklist prevents the most common errors such as coupling Quality with Severity, inflating the scope, or pairing `repo` scope with `advanced = "False"`.

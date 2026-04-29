@@ -118,7 +118,7 @@ offending snippet (20 chars before and after) in the report.
 | id | Check |
 |---|---|
 | X1 | Each `*.md` file has a non-empty `## Reasoning` section (at least 40 chars after trimming whitespace). |
-| X2 | Advanced must be consistent with Context Scope via the deterministic mapping. If `context_scope` is `diff` or `file`, `advanced` must be the string `"FALSE"`. If `context_scope` is `repo` or `external`, `advanced` must be one of the four beyond-diff enum strings `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`. Violation is `fail`. Hard rule. `repo` or `external` with `advanced = "FALSE"` is ALWAYS a fail. |
+| X2 | Advanced must be consistent with Context Scope via the deterministic mapping. If `context_scope` is `diff` or `file`, `advanced` must be the string `"False"`. If `context_scope` is `repo` or `external`, `advanced` must be one of the four beyond-diff enum strings `Repo-specific conventions`, `Context outside changed files`, `Recent language/library updates`, `Better implementation approach`. Violation is `fail`. Hard rule. `repo` or `external` with `advanced = "False"` is ALWAYS a fail. |
 | X3 | If `context_scope == diff`, no entry in `labels.json.context` may have a `file_path` that is NOT in the PR's Changed Files List from `task_info.md`. |
 | X4 | If `context_scope == file` or `repo`, at least one entry must reference a file or line NOT present in the PR diff hunks (otherwise scope should be `diff`). |
 | X5 | Advanced is a string enum, never a JSON boolean. `labels.json.advanced` must be one of the five string values, never `true` or `false` as a JSON literal. |

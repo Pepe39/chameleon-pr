@@ -29,14 +29,14 @@ Read the `context_scope` label set in step 06. Apply this deterministic mapping:
 
 | Context Scope | Advanced |
 |---|---|
-| **diff** | FALSE |
-| **file** | FALSE |
+| **diff** | False |
+| **file** | False |
 | **repo** | True (select the specific beyond-diff category) |
 | **external** | True (select the specific beyond-diff category) |
 
 You do not need to evaluate Axis 3 and Axis 4 separately. Once Context Scope is determined, Advanced is automatic.
 
-**Why this mapping works:** Axis 4 asks whether the comment requires knowledge beyond the files changed in the PR. The files touched by the PR include the changed lines (the diff) and the unchanged lines of those same files. Diff and File are within the PR's files, so Advanced is FALSE. Repo and External are outside the PR's files, so Advanced is True.
+**Why this mapping works:** Axis 4 asks whether the comment requires knowledge beyond the files changed in the PR. The files touched by the PR include the changed lines (the diff) and the unchanged lines of those same files. Diff and File are within the PR's files, so Advanced is False. Repo and External are outside the PR's files, so Advanced is True.
 
 ### 3. Select beyond-diff category (only when True)
 
@@ -53,10 +53,10 @@ If more than one category applies, pick the primary driver.
 
 ### 4. Write reasoning
 
-Document in 1-2 sentences:
-- The Context Scope label from step 06
-- The resulting Advanced label from the mapping
-- If True, which specific category was selected and why
+Write 1-2 sentences focused on WHY the reviewer did or did not need knowledge beyond the changed files. Do NOT mention the Context Scope label or explain the axis mapping (e.g., avoid "Context Scope is X, so Advanced maps to Y"). The reasoning must stand on its own.
+
+- **If False:** state what the reviewer needed and why the changed lines were sufficient.
+- **If True:** state what specific external knowledge was needed and why it was not present in the diff, file, or repo.
 
 ### 5. Update task_info.md
 
@@ -64,8 +64,8 @@ Add to the Labels section:
 
 ```markdown
 ### Advanced
-- **Label:** {Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach | FALSE}
-- **Reasoning:** {1-2 sentences explaining the mapping derivation}
+- **Label:** {Repo-specific conventions | Context outside changed files | Recent language/library updates | Better implementation approach | False}
+- **Reasoning:** {1-2 sentences explaining why the reviewer did or did not need knowledge beyond the changed files. No axis-mapping language.}
 ```
 
 ### 6. Update progress
